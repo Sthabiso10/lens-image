@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://lens-image.vercel.app">
+  <a href="https://lens-image-docs.vercel.app">
     <img src="https://raw.githubusercontent.com/Sthabiso10/lens-image/main/docs/media/logo.png?v=81977681" alt="Lens" width="368" />
   </a>
 </p>
@@ -17,15 +17,15 @@
   <a href="https://www.npmjs.com/package/@lens-image/core"><img alt="npm" src="https://img.shields.io/npm/v/@lens-image/core.svg?color=cb3837" /></a>
   <a href="https://github.com/Sthabiso10/lens-image/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Sthabiso10/lens-image/actions/workflows/ci.yml/badge.svg" /></a>
   <img alt="Zero dependencies" src="https://img.shields.io/badge/dependencies-0-brightgreen.svg" />
-  <img alt="Tests" src="https://img.shields.io/badge/tests-213%20passing-brightgreen.svg" />
+  <img alt="Tests" src="https://img.shields.io/badge/tests-214%20passing-brightgreen.svg" />
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178c6.svg" />
   <img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue.svg" />
 </p>
 
 <p align="center">
-  <a href="https://lens-image.vercel.app/playground"><strong>Try the live playground</strong></a>
+  <a href="https://lens-image-docs.vercel.app/playground"><strong>Try the live playground</strong></a>
   &nbsp;·&nbsp;
-  <a href="https://lens-image.vercel.app">Docs</a>
+  <a href="https://lens-image-docs.vercel.app">Docs</a>
   &nbsp;·&nbsp;
   <a href="#quick-start">Quick start</a>
   &nbsp;·&nbsp;

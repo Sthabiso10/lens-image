@@ -18,7 +18,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://lens-image.vercel.app'),
+  metadataBase: new URL('https://lens-image-docs.vercel.app'),
   title: {
     default: 'Lens: composable image optimization for Node.js',
     template: '%s · Lens',
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     'Resize, compress and convert images, then hand them to whatever storage you already use. Zero dependencies in the core, pluggable adapters for S3, filesystem and Cloudinary.',
   openGraph: {
     type: 'website',
-    url: 'https://lens-image.vercel.app',
+    url: 'https://lens-image-docs.vercel.app',
     siteName: 'Lens',
     title: 'Lens: composable image optimization for Node.js',
     description:

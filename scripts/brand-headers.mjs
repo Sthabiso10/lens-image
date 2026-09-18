@@ -31,7 +31,7 @@ const LOGO = join(root, 'docs/media/logo.png');
 
 // Checked before changing: this has to resolve, or it is a dead link sitting on
 // five npm package pages. It pointed at the repo while the site was undeployed.
-const SITE = 'https://lens-image.vercel.app';
+const SITE = 'https://lens-image-docs.vercel.app';
 
 const hash = createHash('sha256').update(readFileSync(LOGO)).digest('hex').slice(0, 8);
 const RAW = `https://raw.githubusercontent.com/Sthabiso10/lens-image/main/docs/media/logo.png?v=${hash}`;
