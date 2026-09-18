@@ -20,10 +20,23 @@ function setup(options: Partial<Parameters<typeof createUploadHandler>[0]> = {})
  */
 const asBlobPart = (bytes: Uint8Array): BlobPart => bytes as unknown as BlobPart;
 
+/**
+ * Appends a part the way a browser would, without constructing a `File`.
+ *
+ * `File` only became a global in Node 20, and the floor is 18. `FormData`
+ * promotes a `Blob` given a filename into a file entry itself, which is both
+ * portable and a better test: the handler duck-types its file parts rather than
+ * referencing any particular runtime's `File`, so building the fixture out of
+ * one would quietly stop exercising that.
+ */
+function appendFile(form: FormData, field: string, data: Uint8Array, name: string, type?: string) {
+  form.append(field, new Blob([asBlobPart(data)], type ? { type } : undefined), name);
+}
+
 function formRequest(files: { name: string; data: Uint8Array }[], field = 'file'): Request {
   const form = new FormData();
   for (const file of files) {
-    form.append(field, new File([asBlobPart(file.data)], file.name, { type: 'image/jpeg' }));
+    appendFile(form, field, file.data, file.name, 'image/jpeg');
   }
   return new Request('http://localhost/api/upload', { method: 'POST', body: form });
 }
@@ -97,7 +110,7 @@ describe('createUploadHandler', () => {
     });
 
     const form = new FormData();
-    form.append('file', new File([asBlobPart(bytes)], "a.jpg"));
+    appendFile(form, 'file', bytes, 'a.jpg');
     await handler(new Request('http://localhost/api/upload?tenant=acme', { method: 'POST', body: form }));
 
     assert.ok(adapter.keys()[0]!.startsWith('acme/'));
