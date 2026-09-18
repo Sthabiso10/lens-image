@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ES2022", "DOM"],
+    "jsx": "react-jsx",
+    "types": ["node"],
+    "paths": {
+      "@lens-image/core": ["./packages/core/src/index.ts"],
+      "@lens-image/adapter-local": ["./packages/adapter-local/src/index.ts"],
+      "@lens-image/adapter-s3": ["./packages/adapter-s3/src/index.ts"],
+      "@lens-image/adapter-cloudinary": ["./packages/adapter-cloudinary/src/index.ts"],
+      "@lens-image/react": ["./packages/react/src/index.ts"]
+    },
+    "baseUrl": "."
+  },
+  "include": ["packages/*/src/**/*", "packages/*/test/**/*", "scripts/**/*", "examples/**/*"]
+}

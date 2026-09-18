@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build --workspace @lens-image/docs",
+  "outputDirectory": "packages/docs/out",
+  "framework": null,
+  "github": {
+    "silent": true
+  }
+}

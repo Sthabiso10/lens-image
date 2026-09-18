@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push to the same branch makes the in-flight run pointless.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Node ${{ matrix.node }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # 18 is the floor the packages declare; 22 is what most people run.
+        node: ['18.17', '20', '22']
+        os: [ubuntu-latest]
+        include:
+          # Path handling is the part most likely to break per-platform, and the
+          # local adapter is full of it.
+          - { node: '20', os: windows-latest }
+          - { node: '20', os: macos-latest }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - run: npm ci
+
+      # Adapters resolve @lens-image/core's types from its build output, so this has
+      # to happen before the typecheck.
+      - run: npm run build
+
+      - run: npm run typecheck
+
+      - run: npm test
+
+  publish-check:
+    name: Publishing rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      # Fails on a dependency in the core, version drift, a missing README, or a
+      # cross-package range that does not match the release version.
+      - run: npm run release:check
+
+      # `npm pack --dry-run` is the last chance to notice that the `files`
+      # allowlist is shipping something it should not, or missing dist.
+      - name: Inspect the tarballs
+        run: npm pack --dry-run --workspaces
+
+  docs:
+    name: Docs site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace @lens-image/docs

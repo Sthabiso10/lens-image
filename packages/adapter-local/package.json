@@ -1,0 +1,58 @@
+{
+  "name": "@lens-image/adapter-local",
+  "version": "0.1.1",
+  "description": "Local filesystem storage adapter for Lens image optimization. Zero dependencies.",
+  "license": "MIT",
+  "author": "Lens contributors",
+  "keywords": [
+    "lens",
+    "image",
+    "storage",
+    "filesystem",
+    "adapter"
+  ],
+  "homepage": "https://github.com/Sthabiso10/lens-image/tree/main/packages/adapter-local#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sthabiso10/lens-image.git",
+    "directory": "packages/adapter-local"
+  },
+  "bugs": {
+    "url": "https://github.com/Sthabiso10/lens-image/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "dependencies": {
+    "@lens-image/core": "^0.1.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build.mjs adapter-local"
+  }
+}

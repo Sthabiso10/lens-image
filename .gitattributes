@@ -1,0 +1,14 @@
+# Normalise line endings in the repository, so a Windows checkout does not
+# produce a diff on every file the first time someone on macOS touches it.
+* text=auto eol=lf
+
+# Binary assets must never be line-ending converted.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.gif binary
+*.woff binary
+*.woff2 binary

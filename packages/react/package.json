@@ -1,0 +1,60 @@
+{
+  "name": "@lens-image/react",
+  "version": "0.1.1",
+  "description": "Headless React hooks for Lens image uploads. Zero dependencies, no UI components.",
+  "license": "MIT",
+  "author": "Lens contributors",
+  "keywords": [
+    "lens",
+    "react",
+    "image-upload",
+    "hooks",
+    "headless",
+    "dropzone",
+    "upload-progress"
+  ],
+  "homepage": "https://github.com/Sthabiso10/lens-image/tree/main/packages/react#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sthabiso10/lens-image.git",
+    "directory": "packages/react"
+  },
+  "bugs": {
+    "url": "https://github.com/Sthabiso10/lens-image/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build.mjs react"
+  }
+}

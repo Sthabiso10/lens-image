@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Next.js, for the docs site
+.next/
+out/
+next-env.d.ts
+
+# Generated brand and docs imagery is committed on purpose, so a normal build
+# and the CI docs job never need network access. Regenerate it with
+# `npm run brand:build` and `npm run hero:build`.
+
+# Local
+.DS_Store
+.env
+.env.*
+coverage/
+.tmp/
+npm-debug.log*
+*.tgz
+
+# Editor
+.vscode/
+.idea/

@@ -1,0 +1,40 @@
+{
+  "name": "lens-image",
+  "version": "0.1.1",
+  "private": true,
+  "description": "Composable image optimization for Node.js. Zero-dependency core, pluggable storage adapters.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @lens-image/docs",
+    "build": "node scripts/build.mjs",
+    "test": "node scripts/test.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "node scripts/clean.mjs",
+    "test:watch": "node scripts/test.mjs -- --watch",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "set-scope": "node scripts/set-scope.mjs",
+    "release:check": "node scripts/release-check.mjs",
+    "prepublishOnly": "npm run build && npm test",
+    "test:coverage": "node scripts/test.mjs -- --experimental-test-coverage",
+    "docs:dev": "npm run dev --workspace @lens-image/docs",
+    "docs:build": "npm run build --workspace @lens-image/docs",
+    "example": "node examples/basic.mjs",
+    "hero:build": "node scripts/build-hero-images.mjs",
+    "brand:build": "node scripts/build-brand.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "react": "^18.3.1",
+    "sharp": "^0.35.4",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
+  }
+}

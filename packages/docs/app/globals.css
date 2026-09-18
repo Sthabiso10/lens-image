@@ -1,0 +1,360 @@
+@import 'tailwindcss';
+
+/*
+ * The docs site's theme.
+ *
+ * Dark, neutral and quiet. The palette is four surface elevations and four
+ * text levels, plus one accent: hierarchy comes from those steps and from
+ * spacing, not from large type, gradients or glows. The greys carry only a
+ * trace of blue so the interface reads neutral rather than tinted.
+ *
+ * A site about image quality has to be careful with its own colour: anything
+ * saturated in the chrome would sit next to the sample images and change how
+ * they look. So the surfaces stay near-neutral and the accent is used in
+ * hairline quantities.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces, lowest to highest. */
+  --bg: #08090a;
+  --surface: #0f1012;
+  --raised: #151619;
+  --overlay: #1c1d21;
+
+  /* Text, highest contrast to lowest. */
+  --fg: #f7f8f8;
+  --fg-secondary: #b4b8bf;
+  --fg-muted: #8a8f98;
+  --fg-subtle: #62666d;
+
+  --line: #23252a;
+  --line-strong: #2f3138;
+
+  /*
+   * One accent, in the cyan-teal family. It reads as "optical" next to the
+   * neutral greys without being the blue every developer tool already uses,
+   * and it stays distinguishable from the green/amber/red status trio below.
+   */
+  --accent: oklch(0.63 0.13 205);
+  --accent-hover: oklch(0.69 0.13 205);
+  /*
+   * The same hue lifted far enough to be legible as body-size type. The fill
+   * value only reaches 4.3:1 against --raised, which the active nav item sits
+   * on; this clears AA on every surface here. Do not lighten it further, past
+   * this point it washes out into pale grey-blue.
+   */
+  --accent-bright: oklch(0.72 0.12 200);
+
+  /*
+   * Status colours, deliberately lower chroma than the accent so a page full
+   * of chips can never out-shout the one thing being pointed at.
+   */
+  --signal: oklch(0.72 0.15 155);
+  --warn: oklch(0.78 0.14 75);
+  --danger: oklch(0.68 0.19 25);
+
+  /*
+   * Code panel. Keywords sit in the accent family so a snippet belongs to the
+   * same palette as the page, and the warm tones are held back for the things
+   * you actually scan for: calls, values and strings.
+   */
+  --code-comment: #62666d;
+  --code-string: #8cc7a1;
+  --code-keyword: oklch(0.74 0.1 205);
+  --code-type: #6fc3e8;
+  --code-fn: #e2c07d;
+  --code-number: #e0956f;
+  --code-attr: #7fd4c1;
+  --code-punct: #8a8f98;
+}
+
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Surfaces */
+  --color-background: var(--bg);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-overlay: var(--overlay);
+
+  /* Text */
+  --color-foreground: var(--fg);
+  --color-secondary: var(--fg-secondary);
+  --color-muted: var(--fg-muted);
+  --color-subtle: var(--fg-subtle);
+
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-bright: var(--accent-bright);
+
+  /*
+   * shadcn-compatible aliases.
+   *
+   * This is not a shadcn project (the palette above is its own), but dropped-in
+   * shadcn components reach for `border-border`, `text-muted-foreground` and
+   * `--primary` by name. Aliasing them onto what already exists means such a
+   * component renders in this theme without being forked, and without
+   * `shadcn init` overwriting the palette to get there.
+   *
+   * One mismatch worth knowing: in shadcn, `muted` is a *surface* and
+   * `muted-foreground` is the text on it. Here `--color-muted` was already the
+   * muted *text* colour, used as `text-muted` across the site, so it keeps that
+   * meaning and `bg-muted` lands on a mid grey. Only ever seen as a placeholder
+   * behind an image that has not painted yet.
+   */
+  --color-border: var(--line);
+  --color-input: var(--line);
+  --color-ring: var(--accent);
+  --color-muted-foreground: var(--fg-muted);
+  --color-primary: var(--accent);
+  --color-primary-foreground: #04120f;
+  --color-card: var(--surface);
+  --color-card-foreground: var(--fg);
+  --color-popover: var(--overlay);
+  --color-popover-foreground: var(--fg);
+
+  --color-signal: var(--signal);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+
+  --color-code-comment: var(--code-comment);
+  --color-code-string: var(--code-string);
+  --color-code-keyword: var(--code-keyword);
+  --color-code-type: var(--code-type);
+  --color-code-fn: var(--code-fn);
+  --color-code-number: var(--code-number);
+  --color-code-attr: var(--code-attr);
+  --color-code-punct: var(--code-punct);
+
+  /*
+   * Product-density type scale. `sm` is the workhorse for interface chrome
+   * and `base` is 15px, because 16px reads loose beside 13px controls.
+   */
+  --text-2xs: 11px;
+  --text-2xs--line-height: 16px;
+  --text-xs: 12px;
+  --text-xs--line-height: 18px;
+  --text-sm: 13px;
+  --text-sm--line-height: 20px;
+  --text-base: 15px;
+  --text-base--line-height: 24px;
+  --text-lg: 17px;
+  --text-lg--line-height: 26px;
+  --text-xl: 20px;
+  --text-xl--line-height: 28px;
+  --text-xl--letter-spacing: -0.012em;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 32px;
+  --text-2xl--letter-spacing: -0.018em;
+  --text-3xl: 30px;
+  --text-3xl--line-height: 38px;
+  --text-3xl--letter-spacing: -0.022em;
+  --text-4xl: 38px;
+  --text-4xl--line-height: 44px;
+  --text-4xl--letter-spacing: -0.028em;
+  --text-5xl: 52px;
+  --text-5xl--line-height: 56px;
+  --text-5xl--letter-spacing: -0.032em;
+
+  /* Small radii. Nothing on this site is rounder than 16px. */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-2xl: 12px;
+  --radius-3xl: 16px;
+
+  --container-shell: 76rem;
+  --container-prose: 44rem;
+
+  /* One elevation shadow, for the few things that genuinely float. */
+  --shadow-panel: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.7);
+}
+
+@layer base {
+  /*
+   * Tailwind v4 defaults every border to `currentColor`. Everything here wants
+   * the hairline instead, so it is set once.
+   */
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--line);
+    min-width: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    /* The sticky header must not swallow the heading you just jumped to. */
+    scroll-padding-top: 5.5rem;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg-secondary);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    overflow-x: clip;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  /* Headings step up by weight and tracking, not by three sizes. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    color: var(--fg);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--accent) 40%, transparent);
+    color: var(--fg);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border: 3px solid var(--bg);
+    border-radius: 8px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--fg-subtle);
+  }
+}
+
+/* Small section label. Sentence case, one text level down, no tracking. */
+@utility label {
+  font-size: var(--text-2xs);
+  line-height: var(--text-2xs--line-height);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--fg-subtle);
+}
+
+@utility skip-link {
+  position: fixed;
+  left: 1rem;
+  top: -100%;
+  z-index: 200;
+  border-radius: var(--radius-lg);
+  background: var(--accent);
+  padding: 0.625rem 1rem;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: #04120f;
+  transition: top 150ms ease;
+
+  &:focus {
+    top: 1rem;
+  }
+}
+
+/*
+ * The button shapes the whole site uses. Density first: 32px tall, 13px
+ * label, 6px radius.
+ */
+@utility btn {
+  display: inline-flex;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  white-space: nowrap;
+  border-radius: var(--radius-md);
+  padding-inline: 0.75rem;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  font-weight: 500;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+@utility btn-primary {
+  background: var(--accent);
+  /* Near-black rather than white: the accent is light enough that white type
+     on it only reaches 2.4:1. */
+  color: #04120f;
+
+  &:hover {
+    background: var(--accent-hover);
+  }
+}
+
+@utility btn-secondary {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--fg);
+
+  &:hover {
+    border-color: var(--line-strong);
+    background: var(--raised);
+  }
+}
+
+@utility btn-ghost {
+  color: var(--fg-muted);
+
+  &:hover {
+    background: var(--raised);
+    color: var(--fg);
+  }
+}
+
+/*
+ * Numbered steps. The number is a CSS counter rather than a prop, so inserting
+ * a step in the middle does not renumber the ones below it. Written as plain
+ * rules: `content: counter()` fights Tailwind's own `before:` handling if you
+ * express it as an arbitrary property.
+ */
+@layer components {
+  .steps {
+    counter-reset: step;
+  }
+
+  .step {
+    counter-increment: step;
+  }
+
+  .step-number::before {
+    content: counter(step);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
