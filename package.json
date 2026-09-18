@@ -27,7 +27,7 @@
     "docs:build": "npm run build --workspace @lens-image/docs",
     "example": "node examples/basic.mjs",
     "hero:build": "node scripts/build-hero-images.mjs",
-    "brand:build": "node scripts/build-brand.mjs"
+    "brand:build": "node scripts/build-brand.mjs && node scripts/brand-headers.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
