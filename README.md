@@ -357,7 +357,7 @@ npm run release:check  # enforces the promises made above
 | `npm run set-scope @you` | Rename the npm scope across the repo |
 | `npm run example` | Run `examples/basic.mjs` |
 
-**Requires Node 18.17 or newer.**
+**Requires Node 18.19 or newer.**
 
 ---
 

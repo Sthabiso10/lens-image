@@ -24,7 +24,7 @@ between the two files, so they are sampled at build time rather than assumed.
 | File | Size | Used by |
 |---|---|---|
 | `icon.png` | 1024x1024 | npm and GitHub org avatar, anywhere wanting a large square |
-| `logo.png` | 260x98 | The centred header in every README, shown at 300 wide |
+| `logo.png` | 260x98 | The centred header in every README, shown at 300 wide. Rounded corners. |
 | `social-preview.png` | 1280x640 | GitHub repository social preview |
 | `../../packages/docs/app/icon.png` | 512x512 | Favicon, via the Next file convention |
 | `../../packages/docs/app/apple-icon.png` | 180x180 | iOS home screen, opaque on purpose |
@@ -70,7 +70,7 @@ colour is altered.
 | | Why |
 |---|---|
 | `apple-icon.png` | iOS composites home-screen icons onto black rather than honouring alpha, so a transparent one renders on a hard black square with no control over the edge. |
-| `logo.png` | The wordmark is white. Transparent, it would be invisible against GitHub's light theme, so it keeps its dark card. |
+| `logo.png` | The wordmark is white. Transparent, it would be invisible against GitHub's light theme, so it keeps its dark card. Only the corners are cut, at a radius of ten percent of the short side, so a dark card dropped into a light README reads as a mark rather than a screenshot. |
 
 ## Known limits
 

@@ -335,6 +335,36 @@ async function squareMaster(sourcePath, size, inset = 0.12) {
     .toBuffer();
 }
 
+/**
+ * Rounds the corners of an opaque raster.
+ *
+ * The logo keeps its dark card, because the wordmark is white and would vanish
+ * against GitHub's light theme without one. A hard-cornered dark rectangle
+ * dropped into a light README reads as a screenshot rather than a mark, so the
+ * card gets the same corner radius an app icon would.
+ *
+ * The radius is a fraction of the short side rather than a constant, so it
+ * survives the source being re-exported at another size.
+ */
+async function roundCorners(input, fraction = 0.104) {
+  const { width, height } = await sharp(input).metadata();
+  const r = Math.round(Math.min(width, height) * fraction);
+
+  const mask = Buffer.from(
+    `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">` +
+      `<rect width="${width}" height="${height}" rx="${r}" ry="${r}" fill="#fff"/>` +
+      `</svg>`,
+  );
+
+  // `dest-in` keeps the card's own pixels and takes alpha from the mask, so the
+  // corners are cut rather than painted over with a guessed background colour.
+  return sharp(input)
+    .ensureAlpha()
+    .composite([{ input: mask, blend: 'dest-in' }])
+    .png({ compressionLevel: 9 })
+    .toBuffer();
+}
+
 /** Centres the horizontal logo on a canvas of a given aspect, for social cards. */
 async function socialCard(sourcePath, width, height, occupancy = 0.62) {
   const { width: lw, height: lh } = await sharp(sourcePath).metadata();
@@ -375,7 +405,11 @@ async function main() {
   await record(join(mediaDir, 'icon.png'), iconMaster);
 
   const logoSource = await readFile(SOURCE_LOGO);
-  await record(join(mediaDir, 'logo.png'), logoSource);
+
+  // Rounded once here, then used for every logo output, so the README, the npm
+  // package pages and the site header all show the same shape.
+  const logoMaster = await roundCorners(logoSource);
+  await record(join(mediaDir, 'logo.png'), logoMaster);
 
   await record(join(mediaDir, 'social-preview.png'), await socialCard(SOURCE_LOGO, 1280, 640));
 
@@ -399,7 +433,7 @@ async function main() {
 
   // The header and footer render the mark small; one file covers both at 2x.
   const logoLadder = await optimizer.optimize({
-    source: { data: logoSource, filename: 'logo.png' },
+    source: { data: logoMaster, filename: 'logo.png' },
     sizes: [{ width: 478 }, { width: 240 }],
   });
   for (const variant of logoLadder.variants) {

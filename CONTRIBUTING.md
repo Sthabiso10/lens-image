@@ -8,7 +8,7 @@ npm run build     # required before the adapters typecheck. They read core's .d.
 npm test
 ```
 
-**Node 18.17+.** The build is `tsc` twice per package (ESM and CJS) and nothing
+**Node 18.19+.** The build is `tsc` twice per package (ESM and CJS) and nothing
 else, no bundler, by design.
 
 ## Commands

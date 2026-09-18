@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join, resolve } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { LensError } from '@lens-image/core';
@@ -114,8 +114,16 @@ describe('LocalAdapter', () => {
 
   it('refuses an absolute key', async () => {
     const adapter = new LocalAdapter({ root });
+
+    // Absolute is spelled differently per platform, so the fixture is built
+    // rather than written out. A hardcoded `C:/Windows/...` is absolute on
+    // Windows and an ordinary relative path everywhere else, which made this
+    // pass locally and land inside the root on CI.
+    const key = resolve(root, '..', 'lens-absolute-key.webp');
+    assert.ok(isAbsolute(key));
+
     await assert.rejects(
-      adapter.upload(file('C:/Windows/System32/x.webp'), ctx),
+      adapter.upload(file(key), ctx),
       (error: unknown) => LensError.is(error, 'UPLOAD_FAILED'),
     );
   });

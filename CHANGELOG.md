@@ -22,6 +22,13 @@ All five packages are released together at the same version.
   failure to load is now reported as one, quoting what both loaders actually
   said, instead of sending people to reinstall a package that is already there.
 
+### Changed
+
+- **The declared Node floor is now 18.19.0**, up from 18.17.0. Nothing at
+  runtime needed the bump. The test runner is `node --test --import tsx`, and
+  `--import` landed in 18.19.0, so 18.17 could never actually be tested. The
+  floor now says what CI verifies rather than what it hoped for.
+
 ## [0.1.0], 2026-09-18
 
 First release.

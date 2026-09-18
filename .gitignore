@@ -23,6 +23,17 @@ coverage/
 npm-debug.log*
 *.tgz
 
-# Editor
+# Editor and agent state
+# .claude/launch.json is committed on purpose: it is the shared dev-server
+# config, not personal state. Anything local under .claude is not.
+.claude/settings.local.json
+.claude/*.local.json
 .vscode/
 .idea/
+*.swp
+
+# Tooling caches
+.turbo/
+.eslintcache
+.cache/
+.vercel/

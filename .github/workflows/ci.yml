@@ -17,8 +17,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 18 is the floor the packages declare; 22 is what most people run.
-        node: ['18.17', '20', '22']
+        # 18.19 is the floor the packages declare, and the floor is set by what
+        # can actually be tested: `node --test --import tsx` needs `--import`,
+        # which landed in 18.19.0. 22 is what most people run.
+        node: ['18.19', '20', '22']
         os: [ubuntu-latest]
         include:
           # Path handling is the part most likely to break per-platform, and the
