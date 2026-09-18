@@ -6,6 +6,16 @@ All notable changes are documented here. The format follows
 
 All five packages are released together at the same version.
 
+## [0.1.3], 2026-09-18
+
+No code changes. `@lens-image/react@0.1.2` was accepted by the registry but
+never appeared in the package document: npm recorded a publish time for it and
+rejects republishing it as a duplicate, while the version list and tarball index
+still end at 0.1.1. A burned version number cannot be reused, so all five
+packages move to 0.1.3 together rather than leaving react a version behind.
+
+The other four packages are functionally identical to their 0.1.2 releases.
+
 ## [0.1.2], 2026-09-18
 
 ### Fixed

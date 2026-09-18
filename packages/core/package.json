@@ -1,6 +1,6 @@
 {
   "name": "@lens-image/core",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Composable image optimization for Node.js. Zero runtime dependencies, pluggable storage adapters and codecs.",
   "license": "MIT",
   "author": "Lens contributors",

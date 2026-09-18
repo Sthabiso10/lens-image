@@ -1,6 +1,6 @@
 {
   "name": "@lens-image/react",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Headless React hooks for Lens image uploads. Zero dependencies, no UI components.",
   "license": "MIT",
   "author": "Lens contributors",
