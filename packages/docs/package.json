@@ -1,6 +1,6 @@
 {
   "name": "@lens-image/docs",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Documentation site for Lens.",
   "type": "module",
@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@lens-image/core": "^0.1.1",
+    "@lens-image/core": "^0.1.2",
     "next": "^15.4.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

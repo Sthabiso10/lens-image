@@ -6,6 +6,25 @@ All notable changes are documented here. The format follows
 
 All five packages are released together at the same version.
 
+## [0.1.2], 2026-09-18
+
+### Fixed
+
+- **npm's Homepage link landed on a bare file listing.** Every package set
+  `homepage` to its own subdirectory, so clicking through from npm opened
+  `lens-image/tree/main/packages/core`: no About panel, no tags, no README. It
+  now points at the repository root. npm builds its separate "Repository" link
+  from `repository`, which was already correct, so only one of the two links was
+  ever wrong.
+- **Docs links pointed at a dead host.** The site moved to
+  `lens-image-docs.vercel.app` and `lens-image.vercel.app` now 404s.
+
+### Changed
+
+- `release-check` gained two rules: `homepage` may not point into a
+  subdirectory, and the README's test-count badge has to match a real run rather
+  than a number someone remembered to update.
+
 ## [0.1.1], 2026-09-18
 
 ### Fixed

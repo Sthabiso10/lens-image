@@ -1,6 +1,6 @@
 {
   "name": "@lens-image/react",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Headless React hooks for Lens image uploads. Zero dependencies, no UI components.",
   "license": "MIT",
   "author": "Lens contributors",
@@ -13,7 +13,7 @@
     "dropzone",
     "upload-progress"
   ],
-  "homepage": "https://github.com/Sthabiso10/lens-image/tree/main/packages/react#readme",
+  "homepage": "https://github.com/Sthabiso10/lens-image#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Sthabiso10/lens-image.git",

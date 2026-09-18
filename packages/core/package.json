@@ -1,6 +1,6 @@
 {
   "name": "@lens-image/core",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Composable image optimization for Node.js. Zero runtime dependencies, pluggable storage adapters and codecs.",
   "license": "MIT",
   "author": "Lens contributors",
@@ -15,7 +15,7 @@
     "sharp",
     "zero-dependency"
   ],
-  "homepage": "https://github.com/Sthabiso10/lens-image/tree/main/packages/core#readme",
+  "homepage": "https://github.com/Sthabiso10/lens-image#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Sthabiso10/lens-image.git",

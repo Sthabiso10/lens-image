@@ -1,6 +1,6 @@
 {
   "name": "@lens-image/adapter-local",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Local filesystem storage adapter for Lens image optimization. Zero dependencies.",
   "license": "MIT",
   "author": "Lens contributors",
@@ -11,7 +11,7 @@
     "filesystem",
     "adapter"
   ],
-  "homepage": "https://github.com/Sthabiso10/lens-image/tree/main/packages/adapter-local#readme",
+  "homepage": "https://github.com/Sthabiso10/lens-image#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Sthabiso10/lens-image.git",
@@ -47,7 +47,7 @@
   ],
   "sideEffects": false,
   "dependencies": {
-    "@lens-image/core": "^0.1.1"
+    "@lens-image/core": "^0.1.2"
   },
   "publishConfig": {
     "access": "public"

@@ -8,7 +8,10 @@
  *   3. Every package version matches.
  *   4. Every package has README, LICENSE, an exports map and a `files` allowlist.
  *   5. Cross-package ranges point at the version actually being published.
+ *   6. `homepage` lands on the repo root, not a subdirectory file listing.
+ *   7. The README's test-count badge matches a real run.
  */
+import { spawnSync } from 'node:child_process';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,6 +21,12 @@ const pkgRoot = join(root, 'packages');
 
 const errors = [];
 const warnings = [];
+
+/** The repository's web URL, derived rather than repeated in five manifests. */
+function repoRoot() {
+  const url = pkgs?.[0]?.json.repository?.url ?? '';
+  return url.replace(/^git\+/, '').replace(/\.git$/, '');
+}
 
 const pkgs = readdirSync(pkgRoot)
   .filter((d) => existsSync(join(pkgRoot, d, 'package.json')))
@@ -69,6 +78,17 @@ for (const { dir, json } of pkgs) {
   if (json.repository && json.repository.directory !== `packages/${basename(dir)}`) {
     errors.push(`${json.name} has a repository.directory that does not match its folder`);
   }
+
+  // npm renders `homepage` as the "Homepage" link, separately from the
+  // "Repository" one it builds from `repository`. Pointed at a subdirectory it
+  // lands on a bare file listing: no About panel, no tags, no README. The repo
+  // root is where someone arriving from npm can actually see the project.
+  if (json.homepage?.includes('/tree/')) {
+    errors.push(
+      `${json.name} has a homepage pointing into a subdirectory (${json.homepage}); ` +
+        `use ${repoRoot()}#readme so npm's Homepage link lands on the repo root`,
+    );
+  }
   if (!json.types && !json.exports?.['.']?.import?.types) {
     errors.push(`${json.name} publishes no type declarations`);
   }
@@ -79,6 +99,41 @@ for (const { dir, json } of pkgs) {
     warnings.push(`${json.name} has no dist/ - run "npm run build" first`);
   }
 }
+
+/**
+ * The README's test-count badge, against a real run.
+ *
+ * It is a hand-written number in a shields.io URL, so it drifts silently the
+ * first time someone adds a test and it goes on claiming a smaller suite than
+ * ships. Running the suite costs a couple of seconds and is the only way to
+ * know the badge is true rather than plausible.
+ */
+function checkTestBadge() {
+  const readme = join(root, 'README.md');
+  if (!existsSync(readme)) return;
+
+  const badge = readFileSync(readme, 'utf8').match(/tests-(\d+)%20passing/);
+  if (!badge) return;
+
+  const run = spawnSync(process.execPath, [join(root, 'scripts/test.mjs')], {
+    cwd: root,
+    encoding: 'utf8',
+  });
+
+  const actual = run.stdout?.match(/^# tests (\d+)$/m)?.[1];
+  if (!actual) {
+    warnings.push('could not read a test count from the suite, so the README badge is unverified');
+    return;
+  }
+  if (actual !== badge[1]) {
+    errors.push(
+      `README test badge says ${badge[1]} but the suite has ${actual}; ` +
+        `change it to tests-${actual}%20passing`,
+    );
+  }
+}
+
+checkTestBadge();
 
 for (const w of warnings) console.warn(`warn  ${w}`);
 for (const e of errors) console.error(`error ${e}`);
