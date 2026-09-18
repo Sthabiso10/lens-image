@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://github.com/Sthabiso10/lens-image">
+  <a href="https://lens-image.vercel.app">
     <img src="https://raw.githubusercontent.com/Sthabiso10/lens-image/main/docs/media/logo.png?v=81977681" alt="Lens" width="368" />
   </a>
 </p>
