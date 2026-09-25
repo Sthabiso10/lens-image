@@ -84,13 +84,26 @@ export default function DocsIndexPage() {
 
         <div className="grid gap-2">
           {PACKAGES.map((pkg) => (
-            <div key={pkg.name} className="rounded-lg border border-line bg-surface p-4">
+            <div
+              key={pkg.name}
+              className="rounded-lg border border-line bg-surface p-4 transition-colors hover:border-line-strong"
+            >
               <div className="flex flex-wrap items-center gap-2.5">
                 <code className="font-mono text-sm text-foreground">{pkg.name}</code>
                 <span className="rounded border border-line px-1.5 py-0.5 text-xs text-muted">
                   {pkg.role}
                 </span>
-                <span className="ml-auto font-mono text-2xs text-subtle">{pkg.deps}</span>
+                {/* The claim the whole project rests on gets the signal colour. */}
+                <span
+                  className={`ml-auto flex items-center gap-1.5 font-mono text-2xs ${
+                    pkg.deps.startsWith('0 ') ? 'text-signal' : 'text-subtle'
+                  }`}
+                >
+                  {pkg.deps.startsWith('0 ') ? (
+                    <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-signal" />
+                  ) : null}
+                  {pkg.deps}
+                </span>
               </div>
               <p className="mt-2 text-sm text-muted">{pkg.body}</p>
             </div>
@@ -152,7 +165,7 @@ export default function DocsIndexPage() {
             <Link
               key={page.href}
               href={page.href}
-              className="group flex flex-col gap-1 rounded-lg border border-line bg-surface p-4 no-underline transition-colors hover:border-line-strong hover:bg-raised"
+              className="group flex flex-col gap-1 rounded-lg border border-line bg-surface p-4 no-underline transition-[border-color,background-color,transform] duration-300 ease-out-expo hover:-translate-y-0.5 hover:border-line-strong hover:bg-raised"
             >
               <span className="flex items-center gap-1.5 text-base font-medium text-foreground">
                 {page.label}

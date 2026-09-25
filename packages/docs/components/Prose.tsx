@@ -32,11 +32,12 @@ export function Prose({ children }: { children: ReactNode }) {
 
         [&_:is(p,li,td,th,h2,h3,a,strong)>code]:rounded [&_:is(p,li,td,th,h2,h3,a,strong)>code]:border [&_:is(p,li,td,th,h2,h3,a,strong)>code]:border-line [&_:is(p,li,td,th,h2,h3,a,strong)>code]:bg-raised [&_:is(p,li,td,th,h2,h3,a,strong)>code]:px-1 [&_:is(p,li,td,th,h2,h3,a,strong)>code]:py-0.5 [&_:is(p,li,td,th,h2,h3,a,strong)>code]:font-mono [&_:is(p,li,td,th,h2,h3,a,strong)>code]:text-[0.875em] [&_:is(p,li,td,th,h2,h3,a,strong)>code]:text-foreground
 
-        [&_table]:block [&_table]:w-full [&_table]:overflow-x-auto [&_table]:text-left [&_table]:text-sm
-        [&_th]:whitespace-nowrap [&_th]:pb-2 [&_th]:pr-6 [&_th]:text-xs [&_th]:font-medium [&_th]:text-muted
+        [&_table]:block [&_table]:w-full [&_table]:overflow-x-auto [&_table]:rounded-lg [&_table]:border [&_table]:border-line [&_table]:bg-surface [&_table]:text-left [&_table]:text-sm
+        [&_th]:whitespace-nowrap [&_th]:bg-raised/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-xs [&_th]:font-medium [&_th]:text-muted
         [&_thead_tr]:border-b [&_thead_tr]:border-line
-        [&_td]:border-t [&_td]:border-line [&_td]:py-2.5 [&_td]:pr-6 [&_td]:align-top
-        [&_tbody_tr:first-child_td]:border-t-0"
+        [&_td]:border-t [&_td]:border-line [&_td]:px-3 [&_td]:py-2.5 [&_td]:align-top
+        [&_tbody_tr:first-child_td]:border-t-0
+        [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-raised/40"
     >
       {children}
     </article>
@@ -88,11 +89,11 @@ export function Step({ title, children }: { title: string; children: ReactNode }
       <div className="flex flex-col items-center">
         <span
           aria-hidden="true"
-          className="step-number grid h-6 w-6 shrink-0 place-items-center rounded-full border border-line bg-raised text-xs font-medium tabular-nums text-foreground"
+          className="step-number step-dot grid h-6 w-6 shrink-0 place-items-center rounded-full border border-line bg-raised text-xs font-medium tabular-nums text-foreground"
         />
         {/* Connector to the next step. The last one's is hidden by `last:pb-0`
             collapsing the track to nothing. */}
-        <span aria-hidden="true" className="mt-1.5 w-px flex-1 bg-line" />
+        <span aria-hidden="true" className="step-line mt-1.5 w-px flex-1 bg-line" />
       </div>
 
       <div className="min-w-0 flex-1">
@@ -119,7 +120,11 @@ export function Callout({
   children: ReactNode;
 }) {
   return (
-    <aside className="max-w-prose rounded-lg border border-line bg-surface p-4 text-sm">
+    <aside
+      className={`max-w-prose rounded-lg border border-l-2 border-line p-4 text-sm ${
+        tone === 'warn' ? 'border-l-warn/70 bg-warn/[0.04]' : 'border-l-accent/70 bg-surface'
+      }`}
+    >
       {title ? (
         <p className="mb-1 flex items-center gap-2 font-medium text-foreground">
           <span

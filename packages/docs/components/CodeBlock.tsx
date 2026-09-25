@@ -19,6 +19,12 @@ export function CodeBlock({ code, language, filename }: CodeBlockProps) {
       {filename ? (
         <figcaption className="flex items-center justify-between gap-4 border-b border-line px-3 py-2">
           <span className="font-mono text-xs text-muted">{filename}</span>
+          {/* Gives way to the copy button, which appears in the same corner. */}
+          {language ? (
+            <span className="font-mono text-2xs uppercase tracking-wide text-subtle transition-opacity group-focus-within:opacity-0 group-hover:opacity-0">
+              {language}
+            </span>
+          ) : null}
         </figcaption>
       ) : null}
 

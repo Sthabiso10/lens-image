@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { useIndicator } from '@/lib/use-indicator';
 
 interface Heading {
   id: string;
@@ -36,6 +37,10 @@ export function TableOfContents() {
   const pathname = usePathname();
   const [headings, setHeadings] = useState<Heading[]>([]);
   const [active, setActive] = useState<string | null>(null);
+  const list = useRef<HTMLUListElement>(null);
+  // A single bar riding the rail, so reading down the page reads as the
+  // marker travelling with you rather than a light switching on and off.
+  const bar = useIndicator(list, '[aria-current="location"]', `${active}|${headings.length}`);
 
   useEffect(() => {
     setActive(null);
@@ -88,7 +93,22 @@ export function TableOfContents() {
     );
 
     nodes.forEach((node) => observer.observe(node));
-    return () => observer.disconnect();
+
+    // Clicking a heading puts its anchor in the address bar, ready to copy
+    // and share, the way GitHub and most docs sites behave. A listener rather
+    // than a link injected into the heading: the headings belong to React, and
+    // the `#` that hints at this is a CSS pseudo-element (see globals.css).
+    const onClick = (event: MouseEvent) => {
+      const heading = event.currentTarget as HTMLElement;
+      if ((event.target as HTMLElement).closest('a') || window.getSelection()?.toString()) return;
+      window.location.hash = heading.id;
+    };
+    nodes.forEach((node) => node.addEventListener('click', onClick));
+
+    return () => {
+      observer.disconnect();
+      nodes.forEach((node) => node.removeEventListener('click', onClick));
+    };
   }, [pathname]);
 
   if (headings.length === 0) return null;
@@ -96,7 +116,19 @@ export function TableOfContents() {
   return (
     <nav aria-label="On this page" className="flex flex-col gap-2 text-sm">
       <p className="label mb-1">On this page</p>
-      <ul className="flex flex-col border-l border-line">
+      <ul ref={list} className="relative flex flex-col border-l border-line">
+        <span
+          aria-hidden="true"
+          className="absolute -left-px w-px bg-accent-bright"
+          style={{
+            top: bar.top,
+            height: bar.height,
+            opacity: bar.visible ? 1 : 0,
+            transition: bar.animate
+              ? 'top 350ms var(--ease-out-expo), height 350ms var(--ease-out-expo), opacity 200ms'
+              : 'opacity 200ms',
+          }}
+        />
         {headings.map((heading) => {
           const isActive = active === heading.id;
           return (
@@ -104,12 +136,12 @@ export function TableOfContents() {
               <a
                 href={`#${heading.id}`}
                 aria-current={isActive ? 'location' : undefined}
-                className={`-ml-px block border-l py-1 pr-2 transition-colors ${
+                className={`-ml-px block border-l border-transparent py-1 pr-2 transition-colors ${
                   heading.level === 3 ? 'pl-6' : 'pl-3'
                 } ${
                   isActive
-                    ? 'border-accent-bright font-medium text-accent-bright'
-                    : 'border-transparent text-secondary hover:border-line-strong hover:text-foreground'
+                    ? 'font-medium text-accent-bright'
+                    : 'text-secondary hover:border-line-strong hover:text-foreground'
                 }`}
               >
                 {heading.text}

@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { GITHUB_URL, HEADER_LINKS, NAV_GROUPS, VERSION } from '@/lib/nav';
+import { useIndicator } from '@/lib/use-indicator';
 import { Close, GitHub, Menu } from './Icons';
 
 function isActive(pathname: string, href: string) {
@@ -18,6 +19,10 @@ function isActive(pathname: string, href: string) {
 export function SiteHeader() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const nav = useRef<HTMLElement>(null);
+  // One pill that slides to whichever link is current, rather than each link
+  // painting its own background and the highlight jumping between them.
+  const pill = useIndicator(nav, '[aria-current="page"]', pathname);
 
   // Route changes close the menu; an open menu locks the page behind it.
   useEffect(() => setOpen(false), [pathname]);
@@ -53,7 +58,25 @@ export function SiteHeader() {
           Lens
         </Link>
 
-        <nav className="hidden items-center gap-0.5 md:flex" aria-label="Primary">
+        <nav
+          ref={nav}
+          className="relative hidden items-center gap-0.5 md:flex"
+          aria-label="Primary"
+        >
+          <span
+            aria-hidden
+            className="absolute rounded-md bg-raised"
+            style={{
+              top: pill.top,
+              left: pill.left,
+              width: pill.width,
+              height: pill.height,
+              opacity: pill.visible ? 1 : 0,
+              transition: pill.animate
+                ? 'left 400ms var(--ease-out-expo), width 400ms var(--ease-out-expo), opacity 200ms'
+                : 'opacity 200ms',
+            }}
+          />
           {HEADER_LINKS.map((link) => {
             const active = isActive(pathname, link.href);
             return (
@@ -61,10 +84,8 @@ export function SiteHeader() {
                 key={link.href}
                 href={link.href}
                 aria-current={active ? 'page' : undefined}
-                className={`rounded-md px-2.5 py-1.5 text-sm transition-colors ${
-                  active
-                    ? 'bg-raised text-foreground'
-                    : 'text-muted hover:bg-raised/60 hover:text-foreground'
+                className={`relative rounded-md px-2.5 py-1.5 text-sm transition-colors ${
+                  active ? 'text-foreground' : 'text-muted hover:text-foreground'
                 }`}
               >
                 {link.label}
@@ -93,23 +114,35 @@ export function SiteHeader() {
             aria-label={open ? 'Close menu' : 'Open menu'}
             className="btn btn-ghost w-8 px-0 md:hidden"
           >
-            {open ? <Close /> : <Menu />}
+            {/* Keyed so the icon pops as it swaps. */}
+            {open ? (
+              <Close key="close" className="animate-pop" />
+            ) : (
+              <Menu key="menu" />
+            )}
           </button>
         </div>
       </div>
 
       {open ? (
-        <div className="fixed inset-0 top-12 overflow-y-auto border-t border-line bg-background px-4 pb-16 pt-4 md:hidden">
+        <div className="fixed inset-0 top-12 animate-fade-in overflow-y-auto border-t border-line bg-background px-4 pb-16 pt-4 md:hidden">
           <nav aria-label="Mobile">
-            {NAV_GROUPS.map((group) => (
-              <div key={group.title} className="mb-6">
+            {NAV_GROUPS.map((group, index) => (
+              <div
+                key={group.title}
+                className="mb-6 animate-rise"
+                style={{ animationDelay: `${60 + index * 50}ms` }}
+              >
                 <p className="label px-2 py-1.5">{group.title}</p>
                 <ul className="flex flex-col">
                   {group.items.map((item) => (
                     <li key={item.href}>
                       <Link
                         href={item.href}
-                        className="block rounded-md px-2 py-2 text-base text-secondary hover:bg-raised hover:text-foreground"
+                        aria-current={
+                          (pathname.replace(/\/$/, '') || '/') === item.href ? 'page' : undefined
+                        }
+                        className="block rounded-md px-2 py-2 text-base text-secondary transition-colors hover:bg-raised hover:text-foreground aria-[current=page]:bg-raised aria-[current=page]:text-accent-bright"
                       >
                         {item.label}
                       </Link>

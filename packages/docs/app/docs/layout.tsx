@@ -20,6 +20,13 @@ import { TableOfContents } from '@/components/TableOfContents';
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto flex max-w-shell">
+      {/*
+        How far through the page you are, as a hairline under the header.
+        Driven by scroll position in CSS, so it costs no JavaScript; browsers
+        without scroll-driven animations just do not draw it.
+      */}
+      <div aria-hidden="true" className="reading-progress" />
+
       <aside className="hidden w-60 shrink-0 border-r border-line bg-surface lg:block">
         <div className="sticky top-12 max-h-[calc(100vh-3rem)] overflow-y-auto px-3 py-6">
           <DocsSidebar />

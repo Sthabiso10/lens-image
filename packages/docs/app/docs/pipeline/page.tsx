@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { CodeBlock } from '@/components/CodeBlock';
 import { Callout, PageHeader, Prose } from '@/components/Prose';
+import { Reveal } from '@/components/Reveal';
 
 export const metadata: Metadata = { title: 'The pipeline' };
 
@@ -99,13 +100,26 @@ export default function PipelinePage() {
         </p>
 
         <div className="grid gap-px overflow-hidden rounded-lg border border-line bg-line">
-          {STAGES.map((stage) => (
-            <div key={stage.n} className="flex gap-4 bg-surface p-4">
-              <span className="font-mono text-xs text-subtle tabular-nums">{stage.n}</span>
-              <div>
-                <p className="text-sm font-medium text-foreground">{stage.title}</p>
-                <p className="mt-1 text-sm text-muted">{stage.body}</p>
-              </div>
+          {STAGES.map((stage, index) => (
+            // The cell keeps its surface while the row fades in. The grid
+            // draws its dividers by showing its own line colour through the
+            // gaps, so a fully transparent cell would read as a grey block.
+            <div key={stage.n} className="group bg-surface transition-colors hover:bg-raised/60">
+              <Reveal delay={index * 70} className="flex gap-4 p-4">
+                {/*
+                  A fixed column that cannot shrink. The site sets `min-width: 0`
+                  on everything, so a row with a long description would squeeze
+                  its number narrower than a short row's, and the titles would
+                  stop lining up.
+                */}
+                <span className="w-5 shrink-0 font-mono text-xs text-subtle tabular-nums transition-colors group-hover:text-accent-bright">
+                  {stage.n}
+                </span>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">{stage.title}</p>
+                  <p className="mt-1 text-sm text-muted">{stage.body}</p>
+                </div>
+              </Reveal>
             </div>
           ))}
         </div>
