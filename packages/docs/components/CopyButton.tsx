@@ -32,9 +32,19 @@ export function CopyButton({ value, label = 'Copy' }: { value: string; label?: s
       type="button"
       onClick={copy}
       aria-label={copied ? 'Copied' : label}
-      className="grid h-7 w-7 place-items-center rounded-md border border-line bg-raised text-muted transition-colors hover:border-line-strong hover:text-foreground"
+      className={`grid h-7 w-7 place-items-center rounded-md border bg-raised text-muted transition-[color,border-color,transform] duration-200 hover:text-foreground active:scale-90 ${
+        copied ? 'border-signal/40' : 'border-line hover:border-line-strong'
+      }`}
     >
-      {copied ? <Check className="h-3.5 w-3.5 text-signal" /> : <Copy className="h-3.5 w-3.5" />}
+      {/*
+        Keyed, so each swap remounts and plays the pop from the start. The copy
+        icon only pops on its way back, not on every page load.
+      */}
+      {copied ? (
+        <Check key="check" className="h-3.5 w-3.5 animate-pop text-signal" />
+      ) : (
+        <Copy key="copy" className={`h-3.5 w-3.5 ${timer.current ? 'animate-pop' : ''}`} />
+      )}
     </button>
   );
 }

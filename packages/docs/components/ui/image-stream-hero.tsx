@@ -113,6 +113,19 @@ function keyframes(dir: 1 | -1, name: string, p: Required<CorridorPath>) {
   return `@keyframes ${name}{${steps.join("")}}`;
 }
 
+/**
+ * Atmospheric depth: a black veil over each card that thins as it nears.
+ *
+ * Without it every card is equally bright from the vanishing point to the
+ * frame edge, which reads as flat sprites being scaled up. Dimming the far
+ * end sells the distance, and it keeps the busy throat of the corridor quiet
+ * behind the headline. It is an opacity animation on its own layer, so it
+ * stays on the compositor with the transforms instead of a per-frame filter.
+ */
+function fog(name: string) {
+  return `@keyframes ${name}{0%{opacity:.82}35%{opacity:.38}70%{opacity:.08}100%{opacity:0}}`;
+}
+
 export type StreamImage = {
   src: string;
   /** Only used if you drop the decorative treatment; the corridor is aria-hidden. */
@@ -143,6 +156,12 @@ export type ImageStreamHeroProps = {
    * @default 55
    */
   axis?: number;
+  /**
+   * Classes for the layer that holds the corridor, under the children. The
+   * hook for anything that should move the corridor as a whole, like a scroll
+   * effect, without fighting the transforms the component sets itself.
+   */
+  stageClassName?: string;
   /** Override any part of the corridor geometry. Merged over the defaults. */
   path?: CorridorPath;
   /** Content rendered above the corridor. */
@@ -156,6 +175,7 @@ export function ImageStreamHero({
   speed = 18,
   axis = 55,
   path,
+  stageClassName,
   children,
   className,
   ...props
@@ -164,77 +184,187 @@ export function ImageStreamHero({
   const right = `ish-r-${id}`;
   const left = `ish-l-${id}`;
   const card = `ish-c-${id}`;
+  const veil = `ish-f-${id}`;
+  const haze = `ish-fog-${id}`;
 
   const p = React.useMemo(() => ({ ...PATH, ...path }), [path]);
+  // A custom property, so a page can move the axis per breakpoint with a class
+  // (`[--ish-axis:78%] sm:[--ish-axis:52%]`) instead of a re-render.
+  const axisAt = `var(--ish-axis, ${axis}%)`;
+
+  const root = React.useRef<HTMLDivElement>(null);
+  const stage = React.useRef<HTMLDivElement>(null);
+  const [offscreen, setOffscreen] = React.useState(false);
+
+  // Eighteen cards on a 3D path are not free. Once the hero has scrolled out
+  // of view nobody is watching, so the whole corridor holds still until it is
+  // back. Cards and their veils pause together, so they stay in step.
+  React.useEffect(() => {
+    const el = root.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([entry]) =>
+      setOffscreen(!entry?.isIntersecting),
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  // The corridor leans a few degrees toward the pointer, so the frame reads
+  // as a space you are standing in rather than a video playing behind the
+  // copy. Eased toward the target every frame, never snapped, and only for a
+  // real mouse: on touch there is no hover to follow.
+  React.useEffect(() => {
+    const el = root.current;
+    const target = stage.current;
+    if (!el || !target) return;
+    const fine = window.matchMedia("(pointer: fine)").matches;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!fine || reduced) return;
+
+    let goalX = 0;
+    let goalY = 0;
+    let x = 0;
+    let y = 0;
+    let frame = 0;
+
+    const tick = () => {
+      x += (goalX - x) * 0.06;
+      y += (goalY - y) * 0.06;
+      target.style.transform = `rotateX(${(-y * 3).toFixed(3)}deg) rotateY(${(x * 5).toFixed(3)}deg)`;
+      frame =
+        Math.abs(goalX - x) > 0.0005 || Math.abs(goalY - y) > 0.0005
+          ? requestAnimationFrame(tick)
+          : 0;
+    };
+
+    const onMove = (event: PointerEvent) => {
+      const rect = el.getBoundingClientRect();
+      goalX = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
+      goalY = ((event.clientY - rect.top) / rect.height - 0.5) * 2;
+      if (!frame) frame = requestAnimationFrame(tick);
+    };
+    const onLeave = () => {
+      goalX = 0;
+      goalY = 0;
+      if (!frame) frame = requestAnimationFrame(tick);
+    };
+
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerleave", onLeave);
+    return () => {
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerleave", onLeave);
+      cancelAnimationFrame(frame);
+    };
+  }, []);
 
   const css = React.useMemo(
     () =>
-      `${keyframes(1, right, p)}${keyframes(-1, left, p)}` +
+      `${keyframes(1, right, p)}${keyframes(-1, left, p)}${fog(haze)}` +
+      `[data-offscreen] .${card},[data-offscreen] .${veil}{animation-play-state:paused}` +
       // Pausing rather than disabling keeps the corridor whole: every card is
       // already dropped mid-flight by its negative delay, so it freezes as a
       // finished still instead of collapsing onto the axis.
-      `@media(prefers-reduced-motion:reduce){.${card}{animation-play-state:paused}}`,
-    [right, left, card, p],
+      `@media(prefers-reduced-motion:reduce){.${card},.${veil}{animation-play-state:paused}}`,
+    [right, left, card, veil, haze, p],
   );
 
   return (
     <div
+      ref={root}
       className={cn("relative overflow-hidden", className)}
+      data-offscreen={offscreen ? "" : undefined}
       {...props}
       style={{ containerType: "inline-size", ...props.style }}
     >
       <style>{css}</style>
 
+      {/*
+        The arrival: the corridor pulls in from a little further back and out
+        of the dark, so the first frame is a camera settling rather than a
+        wall of pictures that was simply there.
+      */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          perspective: `${p.perspective}cqw`,
-          perspectiveOrigin: `50% ${axis}%`,
-        }}
+        className={cn("pointer-events-none absolute inset-0", stageClassName)}
+        style={{ transformOrigin: `50% ${axisAt}` }}
       >
         <div
           className="absolute inset-0"
-          style={{ transformStyle: "preserve-3d" }}
+          style={{
+            transformOrigin: `50% ${axisAt}`,
+            animation: "ish-arrive 2.4s var(--ease-out-expo, ease-out) both",
+          }}
         >
-          {[right, left].map((name) =>
-            Array.from({ length: cards }, (_, i) => {
-              // Both rails walk the same sequence, so the left side mirrors
-              // the right at every depth.
-              const img = images[i % Math.max(images.length, 1)];
-              return (
-                <div
-                  key={`${name}-${i}`}
-                  className={cn(card, "absolute overflow-hidden")}
-                  style={{
-                    left: "50%",
-                    top: `${axis}%`,
-                    width: `${p.cardWidth}cqw`,
-                    height: `${p.cardHeight}cqw`,
-                    marginLeft: `${-p.cardWidth / 2}cqw`,
-                    marginTop: `${-p.cardHeight / 2}cqw`,
-                    borderRadius: `${p.cardRadius}cqw`,
-                    animation: `${name} ${speed}s linear infinite`,
-                    // Negative delay drops each card mid-flight, so the
-                    // corridor is already full on the first frame.
-                    animationDelay: `${-(i * speed) / cards}s`,
-                    backfaceVisibility: "hidden",
-                  }}
-                >
-                  {img ? (
-                    <img
-                      src={img.src}
-                      alt={img.alt ?? ""}
-                      loading="lazy"
-                      decoding="async"
-                      className="h-full w-full object-cover"
-                      draggable={false}
-                    />
-                  ) : null}
-                </div>
-              );
-            }),
-          )}
+          <style>{`@keyframes ish-arrive{from{opacity:0;transform:scale(.82)}to{opacity:1;transform:none}}`}</style>
+          <div
+            className="absolute inset-0"
+            style={{
+              perspective: `${p.perspective}cqw`,
+              perspectiveOrigin: `50% ${axisAt}`,
+            }}
+          >
+            <div
+              ref={stage}
+              className="absolute inset-0"
+              style={{
+                transformStyle: "preserve-3d",
+                transformOrigin: `50% ${axisAt}`,
+                willChange: "transform",
+              }}
+            >
+              {[right, left].map((name) =>
+                Array.from({ length: cards }, (_, i) => {
+                  // Both rails walk the same sequence, so the left side mirrors
+                  // the right at every depth.
+                  const img = images[i % Math.max(images.length, 1)];
+                  // Negative delay drops each card mid-flight, so the corridor
+                  // is already full on the first frame.
+                  const delay = `${-(i * speed) / cards}s`;
+                  return (
+                    <div
+                      key={`${name}-${i}`}
+                      className={cn(card, "absolute overflow-hidden bg-surface")}
+                      style={{
+                        left: "50%",
+                        top: axisAt,
+                        width: `${p.cardWidth}cqw`,
+                        height: `${p.cardHeight}cqw`,
+                        marginLeft: `${-p.cardWidth / 2}cqw`,
+                        marginTop: `${-p.cardHeight / 2}cqw`,
+                        borderRadius: `${p.cardRadius}cqw`,
+                        animation: `${name} ${speed}s linear infinite`,
+                        animationDelay: delay,
+                        backfaceVisibility: "hidden",
+                      }}
+                    >
+                      {img ? (
+                        <img
+                          src={img.src}
+                          alt={img.alt ?? ""}
+                          decoding="async"
+                          className="h-full w-full object-cover"
+                          draggable={false}
+                        />
+                      ) : null}
+                      {/* A hairline catching the light, so neighbours separate. */}
+                      <span
+                        className="absolute inset-0 ring-1 ring-inset ring-white/10"
+                        style={{ borderRadius: "inherit" }}
+                      />
+                      <span
+                        className={cn(veil, "absolute inset-0 bg-background")}
+                        style={{
+                          animation: `${haze} ${speed}s linear infinite`,
+                          animationDelay: delay,
+                        }}
+                      />
+                    </div>
+                  );
+                }),
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

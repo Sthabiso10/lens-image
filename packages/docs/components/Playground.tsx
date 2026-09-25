@@ -1,7 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { formatBytes } from '@lens-image/core/browser';
+import {
+  LensError,
+  formatBytes,
+  resolveValidation,
+  validateImage,
+} from '@lens-image/core/browser';
 import type { ImageMetadata } from '@lens-image/core/browser';
 import { CodeBlock } from './CodeBlock';
 import { CopyButton } from './CopyButton';
@@ -37,6 +42,16 @@ const WIDTH_PRESETS = [
   { label: 'Avatar', widths: [256, 96, 48] },
   { label: 'Original', widths: [] },
 ];
+
+/** Largest file the playground accepts, matching what it plans against. */
+const MAX_BYTES = 25 * 1024 * 1024;
+
+/**
+ * The library's own limits: the byte cap above, and its default 100-megapixel
+ * decompression-bomb guard. Checked from the file header, before anything is
+ * decoded.
+ */
+const POLICY = resolveValidation({ maxBytes: MAX_BYTES });
 
 const KEY_TEMPLATES = [
   '{hash}/{name}-{label}.{ext}',
@@ -139,11 +154,17 @@ export function Playground() {
     setError(null);
     try {
       const blob = typeof file === 'string' ? await (await fetch(file)).blob() : file;
-      const bitmap = await loadBitmap(blob);
       const asFile =
         blob instanceof File ? blob : new File([blob], name ?? 'sample.jpg', { type: blob.type });
 
+      // Read the header and apply the library's limits *before* decoding.
+      // A small PNG can declare 40,000 x 40,000 pixels and expand to gigabytes
+      // once decoded, which would crash this tab. The header costs 4 KB to read
+      // and says so up front, which is exactly what the server does too.
       const { meta, hash } = await readHeader(asFile);
+      if (POLICY) validateImage(meta, POLICY, asFile.name);
+
+      const bitmap = await loadBitmap(blob);
       const url = URL.createObjectURL(blob);
       ownedUrls.current.push(url);
 
@@ -162,9 +183,13 @@ export function Playground() {
       setFocus(0);
     } catch (cause) {
       setError(
-        cause instanceof Error
-          ? `Could not read that image, ${cause.message}`
-          : 'Could not read that image.',
+        // A LensError is the library explaining a rule the file broke; show it
+        // as written. Anything else is the browser failing to read the file.
+        LensError.is(cause)
+          ? cause.message
+          : cause instanceof Error
+            ? `Could not read that image, ${cause.message}`
+            : 'Could not read that image.',
       );
     }
   }, []);
@@ -261,7 +286,7 @@ export function Playground() {
       keyTemplate,
       prefix,
       thumbnail: false,
-      maxBytes: 25 * 1024 * 1024,
+      maxBytes: MAX_BYTES,
     }),
     [format, preset, quality, keyTemplate, prefix],
   );
@@ -306,8 +331,10 @@ export function Playground() {
                   type="button"
                   onClick={() => void adopt(sample.src, `${sample.name.toLowerCase()}.jpg`)}
                   aria-pressed={active}
-                  className={`group relative aspect-[4/3] overflow-hidden rounded-md border transition-colors ${
-                    active ? 'border-accent' : 'border-line hover:border-line-strong'
+                  className={`group relative aspect-[4/3] overflow-hidden rounded-md border transition-[border-color,transform,box-shadow] duration-300 ease-out-expo active:scale-[0.96] ${
+                    active
+                      ? 'border-accent shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_22%,transparent)]'
+                      : 'border-line hover:-translate-y-0.5 hover:border-line-strong'
                   }`}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -315,7 +342,7 @@ export function Playground() {
                     src={sample.src}
                     alt={sample.alt}
                     loading="lazy"
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    className="h-full w-full object-cover transition-transform duration-500 ease-out-expo group-hover:scale-110"
                   />
                   <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 pb-1 pt-4 text-left text-2xs text-white">
                     {formatBytes(sample.bytes)}
@@ -530,11 +557,46 @@ function Comparison({
 }) {
   const [divider, setDivider] = useState(52);
   const [dragging, setDragging] = useState(false);
+  const revealed = useRef<string | null>(null);
+  const sweep = useRef(0);
+
+  // A new source arrives fully "original", then the encoded version wipes in
+  // from the left and comes to rest where the divider normally sits. It shows
+  // what the slider does before anyone has to be told, and it waits for the
+  // first encode so there is something on the other side to reveal.
+  useEffect(() => {
+    if (!source || !variant || revealed.current === source.url) return;
+    revealed.current = source.url;
+
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) {
+      setDivider(52);
+      return;
+    }
+
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / 1300);
+      // easeOutExpo, matching the rest of the site's arrivals.
+      const eased = t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+      setDivider(52 * eased);
+      if (t < 1) sweep.current = requestAnimationFrame(tick);
+    };
+    cancelAnimationFrame(sweep.current);
+    setDivider(0);
+    sweep.current = requestAnimationFrame(tick);
+  }, [source, variant]);
+
+  useEffect(() => () => cancelAnimationFrame(sweep.current), []);
+
+  // Grabbing the handle mid-sweep hands control straight to the pointer.
+  const interrupt = () => cancelAnimationFrame(sweep.current);
 
   if (!source) {
     return (
-      <div className="grid h-[clamp(300px,44vh,520px)] place-items-center rounded-lg border border-line bg-surface text-sm text-muted">
-        Loading a sample...
+      <div className="relative grid h-[clamp(300px,44vh,520px)] place-items-center overflow-hidden rounded-lg border border-line bg-surface text-sm text-muted">
+        <ScanBar active />
+        <span className="animate-pulse">Loading a sample...</span>
       </div>
     );
   }
@@ -558,15 +620,26 @@ function Comparison({
         value={divider}
         onValueChange={setDivider}
         className="h-[clamp(300px,44vh,520px)] rounded-lg border border-line bg-surface"
-        onPointerDown={() => setDragging(true)}
+        onPointerDown={() => {
+          interrupt();
+          setDragging(true);
+        }}
+        onKeyDown={interrupt}
         onPointerUp={() => setDragging(false)}
         onPointerLeave={() => setDragging(false)}
         onDoubleClick={() => setDivider(50)}
       >
+        <ScanBar active={busy} />
+
         {/* Right of the divider: the untouched source. */}
         <CompareSliderBefore>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={source.url} alt="" className="h-full w-full object-cover" />
+          <img
+            key={source.url}
+            src={source.url}
+            alt=""
+            className="h-full w-full animate-fade-in object-cover"
+          />
           <CompareSliderLabel side="after">
             original, {formatBytes(source.bytes)}
           </CompareSliderLabel>
@@ -574,14 +647,16 @@ function Comparison({
 
         {/* Left of the divider: what the encoder just produced. */}
         <CompareSliderAfter>
+          <div className="h-full w-full bg-raised">
+            {variant ? <Crossfade src={variant.url} /> : null}
+          </div>
           {variant ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={variant.url} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <div className="h-full w-full bg-raised" />
-          )}
-          {variant ? (
-            <CompareSliderLabel side="before" className="border-accent/40 text-accent-bright">
+            <CompareSliderLabel
+              side="before"
+              className={`border-accent/40 text-accent-bright transition-opacity duration-300 ${
+                busy ? 'opacity-60' : 'opacity-100'
+              }`}
+            >
               {variant.format} q{variant.quality}, {formatBytes(variant.size)}
             </CompareSliderLabel>
           ) : null}
@@ -632,7 +707,74 @@ function Comparison({
     </div>
   );
 }
+/**
+ * Holds the previous encode on screen until the next one has decoded, then
+ * fades the new one in over it.
+ *
+ * Dragging the quality slider replaces this image several times a second.
+ * Swapping `src` in place blanks the pane for a frame while the new file
+ * decodes, which reads as flicker; this reads as the picture changing.
+ */
+function Crossfade({ src }: { src: string }) {
+  const [layers, setLayers] = useState<{ src: string; ready: boolean }[]>([
+    { src, ready: false },
+  ]);
 
+  useEffect(() => {
+    setLayers((current) =>
+      current[current.length - 1]?.src === src
+        ? current
+        : [...current.filter((l) => l.ready).slice(-1), { src, ready: false }],
+    );
+  }, [src]);
+
+  // Once the top layer has loaded and had time to fade in, drop what is under
+  // it. A timer rather than `transitionend`: a blob that decodes before the
+  // first paint never transitions, so that event would never come.
+  const settled = layers[layers.length - 1]?.ready && layers.length > 1;
+  useEffect(() => {
+    if (!settled) return;
+    const timer = setTimeout(() => setLayers((current) => current.slice(-1)), 350);
+    return () => clearTimeout(timer);
+  }, [settled]);
+
+  return (
+    <div className="relative h-full w-full">
+      {layers.map((layer, index) => {
+        const top = index === layers.length - 1;
+        return (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={layer.src}
+            src={layer.src}
+            alt=""
+            onLoad={() =>
+              setLayers((current) =>
+                current.map((l) => (l.src === layer.src ? { ...l, ready: true } : l)),
+              )
+            }
+            className="absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ease-out"
+            style={{ opacity: layer.ready || !top ? 1 : 0 }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+/** A thin light crossing the top edge of a frame while work is in flight. */
+function ScanBar({ active }: { active: boolean }) {
+  return (
+    <div
+      aria-hidden
+      className={`pointer-events-none absolute inset-x-0 top-0 z-40 h-0.5 overflow-hidden transition-opacity duration-300 ${
+        active ? 'opacity-100' : 'opacity-0'
+      }`}
+    >
+      <div className="h-full w-1/2 animate-scan bg-gradient-to-r from-transparent via-accent-bright to-transparent" />
+    </div>
+  );
+}
 
 /** The headline number. */
 function Savings({
@@ -651,6 +793,7 @@ function Savings({
   if (!source || !largest) return null;
 
   const big = percent >= 80;
+  const kept = source.bytes > 0 ? Math.min(1, largest.size / source.bytes) : 1;
 
   return (
     <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border border-line bg-surface p-4">
@@ -674,6 +817,19 @@ function Savings({
         <Stat label={`all ${count} file${count === 1 ? '' : 's'}`} value={formatBytes(totalBytes)} />
         <Stat label="encode time" value={`${largest.durationMs}ms`} />
       </dl>
+
+      {/*
+        The same number as a length. The track is the original; the bar is what
+        is left of it, and it slides as the quality slider moves.
+      */}
+      <div className="w-full basis-full" aria-hidden>
+        <div className="relative h-1.5 overflow-hidden rounded-full bg-raised">
+          <div
+            className="absolute inset-y-0 left-0 origin-left animate-grow-x rounded-full bg-accent transition-[width] duration-700 ease-out-expo"
+            style={{ width: `${Math.max(kept * 100, 0.75)}%` }}
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -721,7 +877,8 @@ function Ladder({
               onMouseEnter={() => onFocus(index)}
               onFocus={() => onFocus(index)}
               onClick={() => onFocus(index)}
-              className={`group flex items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors ${
+              style={{ animationDelay: `${index * 60}ms` }}
+              className={`group flex animate-rise items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors ${
                 index === focus
                   ? 'border-accent/40 bg-accent/5'
                   : 'border-line bg-surface hover:border-line-strong'
@@ -734,8 +891,11 @@ function Ladder({
               {/* Bar length is the real pixel width, so the ladder is to scale. */}
               <span className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-raised">
                 <span
-                  className="absolute inset-y-0 left-0 rounded-full bg-accent/70 transition-[width] duration-300"
-                  style={{ width: `${(variant.width / widest) * 100}%` }}
+                  className="absolute inset-y-0 left-0 origin-left animate-grow-x rounded-full bg-accent/70 transition-[width] duration-500 ease-out-expo"
+                  style={{
+                    width: `${(variant.width / widest) * 100}%`,
+                    animationDelay: `${index * 60 + 120}ms`,
+                  }}
                 />
               </span>
 
@@ -762,10 +922,11 @@ function Keys({ planned }: { planned: NonNullable<ReturnType<typeof plan>> }) {
       <div>
         <p className="label mb-2">Storage keys</p>
         <ul className="flex flex-col gap-1">
-          {planned.variants.map((variant) => (
+          {planned.variants.map((variant, index) => (
             <li
               key={variant.key}
-              className="rounded-md border border-line bg-surface px-3 py-1.5 font-mono text-xs text-muted"
+              style={{ animationDelay: `${index * 40}ms` }}
+              className="animate-fade-in rounded-md border border-line bg-surface px-3 py-1.5 font-mono text-xs text-muted"
             >
               <span className="break-all">{variant.key}</span>
             </li>

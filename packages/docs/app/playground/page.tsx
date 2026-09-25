@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function PlaygroundPage() {
   return (
     <div className="mx-auto max-w-shell px-4 py-10 sm:px-6 lg:py-14">
-      <header className="mb-8 max-w-prose">
+      <header className="mb-8 max-w-prose animate-rise">
         <p className="label">Try it</p>
         <h1 className="mt-1.5 text-3xl font-semibold text-foreground">Playground</h1>
         <p className="mt-3 text-base text-muted">

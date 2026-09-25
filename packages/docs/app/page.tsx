@@ -5,6 +5,8 @@ import { ImageStreamHero } from '@/components/ui/image-stream-hero';
 import { SqueezeCarousel, type SqueezeSlide } from '@/components/ui/carousel-squeeze';
 import { HERO_IMAGES, HERO_STATS } from '@/lib/hero-images';
 import { GITHUB_URL, VERSION } from '@/lib/nav';
+import { HeroSavings } from '@/components/HeroSavings';
+import { Reveal } from '@/components/Reveal';
 
 const INSTALL = 'npm install @lens-image/core sharp';
 
@@ -164,7 +166,8 @@ function Hero() {
         images={HERO_IMAGES}
         speed={26}
         axis={52}
-        className="h-[660px] w-full sm:h-[760px]"
+        stageClassName="hero-exit-stage"
+        className="h-[820px] w-full [--ish-axis:80%] sm:h-[760px] sm:[--ish-axis:52%]"
       >
         {/*
           Three stacked washes, each doing one job:
@@ -183,18 +186,18 @@ function Hero() {
           Two pools, because the ratio between the copy and the frame inverts
           with width. On a wide screen the text occupies the middle third and
           the cards are out at the edges, so a narrow pool separates them. On a
-          phone the text is nearly full-bleed while the corridor, sized in
-          `cqw`, shrinks with the container, so the two land on top of each
-          other and the pool has to cover almost everything.
+          phone the text is nearly full-bleed, so instead of burying the
+          corridor under it, the copy moves to the top, the corridor's axis
+          drops to 80% and the wash only has to cover the upper part. The
+          corridor gets its own band below the copy.
         */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 sm:hidden"
           style={{
             background: [
-              'radial-gradient(86% 42% at 50% 44%, rgb(8 9 10 / 0.95) 0%, rgb(8 9 10 / 0.88) 60%, rgb(8 9 10 / 0.35) 100%)',
-              'linear-gradient(to bottom, rgb(8 9 10 / 0.85) 0%, rgb(8 9 10 / 0) 16%)',
-              'linear-gradient(to top, var(--bg) 0%, rgb(8 9 10 / 0.6) 12%, rgb(8 9 10 / 0) 30%)',
+              'linear-gradient(to bottom, rgb(8 9 10 / 0.94) 0%, rgb(8 9 10 / 0.9) 58%, rgb(8 9 10 / 0.35) 70%, rgb(8 9 10 / 0) 78%)',
+              'linear-gradient(to top, var(--bg) 0%, rgb(8 9 10 / 0) 12%)',
             ].join(','),
           }}
         />
@@ -211,16 +214,21 @@ function Hero() {
           }}
         />
 
-        <div className="relative mx-auto flex h-full max-w-shell flex-col items-center justify-center px-4 text-center sm:px-6">
+        <div className="hero-exit-copy relative mx-auto flex h-full max-w-shell flex-col items-center justify-start px-4 pt-14 text-center sm:justify-center sm:px-6 sm:pt-0">
           <Link
             href="/docs#about-that-zero-dependencies-claim"
-            className="inline-flex items-center gap-2 rounded-full border border-line bg-surface/80 py-1 pl-1 pr-3 text-xs text-muted backdrop-blur-sm transition-colors hover:border-line-strong hover:text-foreground"
+            className="animate-rise relative inline-flex items-center gap-2 overflow-hidden rounded-full border border-line bg-surface/80 py-1 pl-1 pr-3 text-xs text-muted backdrop-blur-sm transition-colors hover:border-line-strong hover:text-foreground"
           >
             <span className="rounded-full bg-raised px-2 py-0.5 font-mono text-2xs text-secondary">
               v{VERSION}
             </span>
             Zero dependencies, and we mean it literally
             <ArrowRight className="h-3 w-3" />
+            {/* One pass of light once the copy has landed, then never again. */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 left-0 w-1/3 animate-sheen bg-gradient-to-r from-transparent via-white/15 to-transparent"
+            />
           </Link>
 
           {/*
@@ -229,41 +237,46 @@ function Hero() {
             A soft shadow costs nothing and removes that failure mode entirely.
           */}
           <h1
-            className="mt-6 max-w-2xl text-4xl font-semibold text-foreground sm:text-5xl"
-            style={{ textShadow: '0 1px 24px rgb(8 9 10 / 0.9), 0 1px 3px rgb(8 9 10 / 0.7)' }}
+            className="mt-6 max-w-2xl animate-rise text-4xl font-semibold text-foreground sm:text-5xl"
+            style={{
+              textShadow: '0 1px 24px rgb(8 9 10 / 0.9), 0 1px 3px rgb(8 9 10 / 0.7)',
+              animationDelay: '90ms',
+            }}
           >
             Image optimization you can actually audit
           </h1>
 
           <p
-            className="mt-4 max-w-xl text-lg text-secondary"
-            style={{ textShadow: '0 1px 16px rgb(8 9 10 / 0.95), 0 1px 2px rgb(8 9 10 / 0.8)' }}
+            className="mt-4 max-w-xl animate-rise text-lg text-secondary"
+            style={{
+              textShadow: '0 1px 16px rgb(8 9 10 / 0.95), 0 1px 2px rgb(8 9 10 / 0.8)',
+              animationDelay: '180ms',
+            }}
           >
             Resize, compress and convert images, then hand them to whatever storage you
             already use. A processing core with no dependencies, and everything heavy
             behind an interface you control.
           </p>
 
-          <div className="mt-7 flex flex-wrap items-center justify-center gap-2">
-            <Link href="/docs/getting-started" className="btn btn-primary">
+          <div
+            className="mt-7 flex animate-rise flex-wrap items-center justify-center gap-2"
+            style={{ animationDelay: '270ms' }}
+          >
+            <Link href="/docs/getting-started" className="group btn btn-primary">
               Get started
+              <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
             </Link>
             <Link href="/playground" className="btn btn-secondary">
               Open the playground
             </Link>
           </div>
 
-          <div className="mt-8 w-full max-w-md">
+          <div className="mt-8 w-full max-w-md animate-rise" style={{ animationDelay: '360ms' }}>
             <CommandLine command={INSTALL} />
           </div>
 
-          <p className="mt-6 text-xs text-subtle">
-            The {HERO_STATS.count} images flying past were optimized by Lens, {' '}
-            <span className="text-muted">
-              {(HERO_STATS.sourceBytes / 1024 / 1024).toFixed(1)} MB down to{' '}
-              {Math.round(HERO_STATS.outputBytes / 1024)} KB, {HERO_STATS.savingsPercent}%
-              smaller.
-            </span>
+          <p className="mt-6 animate-fade-in text-xs text-subtle" style={{ animationDelay: '900ms' }}>
+            <HeroSavings {...HERO_STATS} />
           </p>
         </div>
       </ImageStreamHero>
@@ -275,7 +288,7 @@ function Quickstart() {
   return (
     <section className="mx-auto max-w-shell px-4 py-16 sm:px-6" aria-label="Quick start">
       <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-14">
-        <div>
+        <Reveal>
           <p className="label">Quick start</p>
           <h2 className="mt-1.5 text-2xl font-semibold">
             Six responsive files in eight lines
@@ -307,9 +320,11 @@ function Quickstart() {
             Read the walkthrough
             <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
           </Link>
-        </div>
+        </Reveal>
 
-        <CodeBlock code={QUICKSTART} language="ts" filename="upload.ts" />
+        <Reveal delay={120}>
+          <CodeBlock code={QUICKSTART} language="ts" filename="upload.ts" />
+        </Reveal>
       </div>
     </section>
   );
@@ -321,25 +336,28 @@ function Features() {
       className="mx-auto max-w-shell px-4 py-16 sm:px-6"
       aria-label="What makes it different"
     >
-      <p className="label">Design</p>
-      <h2 className="mt-1.5 max-w-lg text-2xl font-semibold">
-        Small on purpose, and honest about the parts that are not
-      </h2>
+      <Reveal>
+        <p className="label">Design</p>
+        <h2 className="mt-1.5 max-w-lg text-2xl font-semibold">
+          Small on purpose, and honest about the parts that are not
+        </h2>
+      </Reveal>
 
       <div className="mt-8 grid gap-2 sm:grid-cols-2">
-        {FEATURES.map((feature) => (
-          <Link
-            key={feature.title}
-            href={feature.href}
-            className="group flex flex-col gap-2 rounded-lg border border-line bg-surface p-5 transition-colors hover:border-line-strong hover:bg-raised"
-          >
-            <feature.icon className="h-4 w-4 text-accent" />
-            <h3 className="flex items-center gap-1.5 text-base font-medium text-foreground">
-              {feature.title}
-              <ArrowRight className="h-3.5 w-3.5 text-subtle transition-transform group-hover:translate-x-0.5" />
-            </h3>
-            <p className="text-sm text-muted">{feature.body}</p>
-          </Link>
+        {FEATURES.map((feature, index) => (
+          <Reveal key={feature.title} delay={index * 80}>
+            <Link
+              href={feature.href}
+              className="group flex h-full flex-col gap-2 rounded-lg border border-line bg-surface p-5 transition-colors hover:border-line-strong hover:bg-raised"
+            >
+              <feature.icon className="h-4 w-4 text-accent" />
+              <h3 className="flex items-center gap-1.5 text-base font-medium text-foreground">
+                {feature.title}
+                <ArrowRight className="h-3.5 w-3.5 text-subtle transition-transform group-hover:translate-x-0.5" />
+              </h3>
+              <p className="text-sm text-muted">{feature.body}</p>
+            </Link>
+          </Reveal>
         ))}
       </div>
     </section>
@@ -350,9 +368,11 @@ function Degradation() {
   return (
     <section className="mx-auto max-w-shell px-4 py-16 sm:px-6" aria-label="Error handling">
       <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:gap-14">
-        <CodeBlock code={DEGRADE} language="ts" />
+        <Reveal>
+          <CodeBlock code={DEGRADE} language="ts" />
+        </Reveal>
 
-        <div>
+        <Reveal delay={120}>
           <p className="label">Failure</p>
           <h2 className="mt-1.5 text-2xl font-semibold">A missing codec is not a 500</h2>
           <p className="mt-3 text-muted">
@@ -373,7 +393,7 @@ function Degradation() {
             How the pipeline handles failure
             <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
           </Link>
-        </div>
+        </Reveal>
       </div>
     </section>
   );
@@ -382,14 +402,16 @@ function Degradation() {
 function Adapters() {
   return (
     <section className="mx-auto max-w-shell px-4 py-16 sm:px-6" aria-label="Storage">
-      <p className="label">Storage</p>
-      <h2 className="mt-1.5 max-w-lg text-2xl font-semibold">
-        One interface, one required method
-      </h2>
-      <p className="mt-3 max-w-xl text-muted">
-        Processing and storage are separate concerns, so they are separate packages. Pick a
-        backend, or write one. The call above it never changes.
-      </p>
+      <Reveal>
+        <p className="label">Storage</p>
+        <h2 className="mt-1.5 max-w-lg text-2xl font-semibold">
+          One interface, one required method
+        </h2>
+        <p className="mt-3 max-w-xl text-muted">
+          Processing and storage are separate concerns, so they are separate packages. Pick
+          a backend, or write one. The call above it never changes.
+        </p>
+      </Reveal>
 
       {/*
         The carousel needs room to be a carousel. Its open panel is a 16:9 block,
@@ -399,20 +421,15 @@ function Adapters() {
         that cannot be tapped. Below `sm` the same five entries render as a list,
         which is the better phone layout anyway.
       */}
-      <div className="mt-8 hidden sm:block">
+      <Reveal delay={120} className="mt-8 hidden sm:block">
         <SqueezeCarousel
           slides={ADAPTER_SLIDES}
           label="Storage backends"
           height="clamp(180px, 30cqi, 340px)"
           accent="var(--accent)"
           accentForeground="#04120f"
-          // The component ships its own webfont from a third-party CDN.
-          // Inheriting keeps the site on the Inter it already serves, and means
-          // the browser never requests those files. An @font-face that nothing
-          // references is never fetched.
-          style={{ fontFamily: 'inherit' }}
         />
-      </div>
+      </Reveal>
 
       <ul className="mt-8 flex flex-col gap-2 sm:hidden">
         {ADAPTER_SLIDES.map((slide) => (
@@ -449,13 +466,14 @@ function Adapters() {
 function FinalCta() {
   return (
     <section className="mx-auto max-w-shell px-4 pb-20 pt-4 sm:px-6" aria-label="Get started">
-      <div className="flex flex-col items-center gap-5 text-center">
+      <Reveal className="flex flex-col items-center gap-5 text-center">
         <h2 className="max-w-md text-2xl font-semibold">
           Stop rewriting the same upload pipeline
         </h2>
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <Link href="/docs/getting-started" className="btn btn-primary">
+          <Link href="/docs/getting-started" className="group btn btn-primary">
             Get started
+            <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
           </Link>
           <a
             href={GITHUB_URL}
@@ -466,7 +484,7 @@ function FinalCta() {
             View source
           </a>
         </div>
-      </div>
+      </Reveal>
     </section>
   );
 }
