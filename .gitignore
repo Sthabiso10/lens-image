@@ -36,5 +36,4 @@ npm-debug.log*
 .turbo/
 .eslintcache
 .cache/
-.vercel/
 .wrangler/
