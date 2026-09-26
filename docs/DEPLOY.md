@@ -1,37 +1,84 @@
 # Deploying the docs site
 
-The site lives in `packages/docs`, builds to a **static export**, and deploys to
-Vercel from the repository root. It is moving to Cloudflare; see
-[Cloudflare](#cloudflare).
+The site lives in `packages/docs`, builds to a **static export**, and is hosted
+on Cloudflare as Workers static assets at
+<https://lens-image.sthabisod10.workers.dev>.
 
 Static export (`output: 'export'` in `next.config.mjs`) is deliberate: everything
-runs in the browser. The playground plans variants against `@lens-image/core/browser`
-, and there are no API routes, server actions or revalidation. The build is a
-folder of files any host will serve, so the site is not tied to Vercel. It also
-sidesteps Vercel's framework detection, which looks for `next` in the _root_
-`package.json` and does not find it in a monorepo unless you set the project's
-Root Directory, which cannot be done from `vercel.json` or the CLI.
+runs in the browser. The playground plans variants against
+`@lens-image/core/browser`, and there are no API routes, server actions or
+revalidation. The build is a folder of files any host will serve, so the site is
+not tied to any one host.
 
-One consequence: **no server-side features.** If you ever need a real route, set
-Root Directory to `packages/docs` in the Vercel dashboard and drop the export.
+One consequence: **no server-side features.** If you ever need a real route,
+drop the export and move to a Worker script or a server host.
 
-`vercel.json` cannot carry comments, because Vercel's schema rejects unknown
-keys, so the reasoning for each setting is here instead:
+## Cloudflare
 
-| Setting | Why |
+`wrangler.jsonc` at the repository root hosts `packages/docs/out` as **Workers
+static assets** with no Worker script, so every request is served straight from
+the files and none of it is billed. Cloudflare's dashboard now creates Workers
+rather than Pages projects; static assets are the Workers equivalent of a Pages
+site.
+
+Unknown paths get `out/404.html` (`not_found_handling: "404-page"`), and a
+path without its trailing slash is redirected to the directory, which
+`trailingSlash: true` already expects.
+
+### Connecting the repository
+
+In the Cloudflare dashboard: **Workers & Pages → Create → Import a repository**,
+pick this repo, then:
+
+| Setting | Value |
 | --- | --- |
-| `installCommand: npm install` | Installs the **whole workspace**, not just `packages/docs`. The site imports `@lens-image/core` by name and Next transpiles it from source via `transpilePackages`, so the library has to be present. |
-| `buildCommand: npm run build --workspace @lens-image/docs` | A bare `npm run build` at the root builds the _libraries_ and never touches the site. |
-| `outputDirectory: packages/docs/out` | The build runs from the root, so the output is not where Vercel would look by default. |
-| `framework: null` | Detection fails on a monorepo root anyway, and an incorrect guess adds routing rules a static export does not want. |
-| `github.silent: true` | Suppresses the deployment-status comments Vercel posts on every commit. |
-| `headers` | Security headers on every response. See below. |
+| Project name | `lens-image`, matching `name` in `wrangler.jsonc` |
+| Root directory | `/` (the repository root, not `packages/docs`) |
+| Build command | leave empty |
+| Deploy command | `npx wrangler deploy` |
+
+**The dashboard project name and `name` in `wrangler.jsonc` must match.** The
+dashboard's builds deploy to the project's own Worker whatever the config says,
+but `npx wrangler deploy` run by hand uses the config's name, and a mismatch
+quietly creates a second Worker on a different URL.
+
+The root directory is the repository root because the whole workspace has to be
+installed: the site imports `@lens-image/core` by name and Next transpiles it
+from source via `transpilePackages`, so the library has to be present.
+
+`wrangler deploy` builds the site itself, through `build.command` in
+`wrangler.jsonc`, so the dashboard build command is not needed. Anything set
+there runs first and just builds the site twice. **Never set it to a bare
+`npm run build`**: that builds only the libraries, and on its own it broke the
+first Cloudflare deploy with "The directory specified by the assets.directory
+field does not exist".
+
+### Deploying by hand
+
+```bash
+npx wrangler deploy     # builds the site, then uploads it
+```
+
+Run it from the repository root, not from `packages/docs`.
+
+Current wrangler needs **Node 22**. Cloudflare's build image already has it.
+Locally, on Node 20, only an older wrangler runs, and it cannot start a Worker
+whose `compatibility_date` is newer than it knows about, so preview with a date
+override (which does not touch the config). It builds the site first too, and
+rebuilds when `app`, `components`, `lib` or `public` in `packages/docs` change:
+
+```bash
+npx wrangler@4.86.0 dev --compatibility-date 2026-05-03
+```
 
 ## Security headers
 
 The site is static, so there is no server to attack. The headers limit what a
 browser will let the pages do, which matters if anything injected ever reaches
 them.
+
+They are set in `packages/docs/public/_headers`. Next copies `public/` to the
+root of the export, where Cloudflare reads the file and does not serve it.
 
 | Header | Why |
 | --- | --- |
@@ -41,7 +88,7 @@ them.
 | `Referrer-Policy` | Links out to GitHub and npm send the origin, never the full path. |
 | `Cross-Origin-Opener-Policy` | A page opened from this one cannot reach back into it. |
 | `Permissions-Policy` | Nothing here needs the camera, microphone, location, payments or USB, so they are refused outright. |
-| `Strict-Transport-Security` | HTTPS only, for two years. Vercel already sends this on its own domains; it is here so a custom domain gets it too. |
+| `Strict-Transport-Security` | HTTPS only, for two years, so a custom domain gets it too. |
 
 **If you add anything that loads from another origin** (analytics, a font CDN,
 an embedded video), add that origin to the matching CSP directive, or the
@@ -63,110 +110,23 @@ It also needs `--webpack` on `dev` and `build`, because Turbopack cannot resolve
 the `.js` imports in `@lens-image/core`'s TypeScript source. Revisit both when
 upgrading, and drop the override once Next ships a patched `postcss`.
 
-## Deploying
-
-```bash
-vercel deploy          # preview build, safe to run any time
-vercel deploy --prod   # promote to the production domain
-```
-
-Both run from the repository root, not from `packages/docs`.
-
-## Domains, and a trap
-
-Vercel derives a project's production domain from the project name and falls
-back to a random suffix when that subdomain is taken, so you can end up on
-`lens-abc123.vercel.app` without noticing.
-
-Renaming the project does **not** move the domain. Two things are needed:
-
-```bash
-vercel project rename <old> <new>
-vercel domains add <new>.vercel.app <new>     # the part people forget
-```
-
-`vercel alias set` looks like it does the job and does not: an alias is not a
-_project domain_, so Deployment Protection still applies and visitors get a
-Vercel login page instead of the site. Always load the URL in a private window
-after changing it.
-
 ## After a domain change
 
-Three places hardcode the URL. Update all of them:
+Add a custom domain under the Worker's **Settings → Domains & Routes**, then
+update every place that hardcodes the URL:
 
-1. `metadataBase` and the `openGraph.url` in `packages/docs/app/layout.tsx`
-   without this, Open Graph images resolve against the old host.
-2. The repository homepage: `gh repo edit <owner>/<repo> --homepage "https://<new>"`.
-3. The `homepage` field in each package's `package.json`, which npm renders on
-   the package page.
+1. `metadataBase` and `openGraph.url` in `packages/docs/app/layout.tsx`.
+   Without this, Open Graph images resolve against the old host.
+2. `SITE` in `scripts/brand-headers.mjs`, then run `npm run brand:build` to
+   rewrite the logo link at the top of every README.
+3. The Docs and playground links further down the root `README.md`.
+4. The repository homepage: `gh repo edit <owner>/<repo> --homepage "https://<new>"`.
 
-## Cloudflare
+The READMEs are what npm shows on each package page, so npm only picks up the
+new links at the next publish. Each package's `homepage` field points at the
+GitHub repository, not the site, so it never needs changing.
 
-The site is moving from Vercel to Cloudflare. `wrangler.jsonc` at the
-repository root hosts `packages/docs/out` as **Workers static assets** with no
-Worker script, so every request is served straight from the files and none of
-it is billed. Cloudflare's dashboard now creates Workers rather than Pages
-projects; static assets are the Workers equivalent of a Pages site.
-
-The security headers come from `packages/docs/public/_headers`, which Next
-copies to the root of the export, where Cloudflare reads it and does not serve
-it. Cloudflare ignores `vercel.json`, so **both files carry the same headers
-until Vercel is retired**. Change one, change the other.
-
-Unknown paths get `out/404.html` (`not_found_handling: "404-page"`), and a
-path without its trailing slash is redirected to the directory, which
-`trailingSlash: true` already expects.
-
-### Connecting the repository
-
-In the Cloudflare dashboard: **Workers & Pages → Create → Import a repository**,
-pick this repo, then:
-
-| Setting | Value |
-| --- | --- |
-| Root directory | `/` (the repository root, not `packages/docs`) |
-| Build command | leave empty |
-| Deploy command | `npx wrangler deploy` |
-
-The Worker name comes from `wrangler.jsonc` (`lens-image-docs`), so the site
-lands on `lens-image-docs.<account>.workers.dev`. The root directory is the
-repository root for the same reason as on Vercel: the whole workspace has to be
-installed.
-
-`wrangler deploy` builds the site itself, through `build.command` in
-`wrangler.jsonc`, so the dashboard build command is not needed. Anything set
-there runs first and just builds the site twice. **Never set it to a bare
-`npm run build`**: that builds only the libraries, and on its own it broke the
-first Cloudflare deploy with "The directory specified by the assets.directory
-field does not exist".
-
-### Deploying by hand
-
-```bash
-npx wrangler deploy     # builds the site, then uploads it
-```
-
-Current wrangler needs **Node 22**. Cloudflare's build image already has it.
-Locally, on Node 20, only an older wrangler runs, and it cannot start a Worker
-whose `compatibility_date` is newer than it knows about, so preview with a date
-override (which does not touch the config). It builds the site first too, and
-rebuilds when `app`, `components`, `lib` or `public` in `packages/docs` change:
-
-```bash
-npx wrangler@4.86.0 dev --compatibility-date 2026-05-03
-```
-
-### Cutting over
-
-1. Deploy on Cloudflare and check the `workers.dev` URL in a private window:
-   every page, the playground, a 404, and the response headers.
-2. Add the custom domain, if any, under the Worker's **Settings → Domains &
-   Routes**.
-3. Update the three hardcoded URLs listed under _After a domain change_, plus
-   the README badges and `SITE` in `scripts/brand-headers.mjs`
-   (`npm run brand:build` regenerates from it).
-4. Delete `vercel.json`, the Vercel project, and the Vercel sections of this
-   file, and drop the "keep in step" note from `_headers`.
+Always load the new URL in a private window after changing it.
 
 ## Self-hosting instead
 
@@ -177,6 +137,7 @@ npm run build --workspace @lens-image/docs
 npx serve packages/docs/out
 ```
 
-Any static host works, S3 behind CloudFront, Cloudflare Pages, GitHub Pages,
-nginx. `trailingSlash: true` means every route is a directory with an
-`index.html`, so no host-specific rewrite rules are needed.
+Any static host works: S3 behind CloudFront, GitHub Pages, nginx.
+`trailingSlash: true` means every route is a directory with an `index.html`, so
+no host-specific rewrite rules are needed. Only Cloudflare reads `_headers`;
+another host needs the security headers set in its own config.

@@ -5,7 +5,9 @@
   //
   // `npx wrangler deploy` from the repository root builds the site and then
   // uploads it. docs/DEPLOY.md has the details.
-  "name": "lens-image-docs",
+  // Must match the project name in the Cloudflare dashboard, or a manual
+  // deploy creates a second Worker on a different URL.
+  "name": "lens-image",
   "compatibility_date": "2026-09-26",
   "build": {
     // Runs before every deploy and dev session, so the export always exists
