@@ -1,6 +1,5 @@
 # Security headers for every response, read by Cloudflare static assets.
 # Next copies public/ into out/, so this lands at the root of the export.
-# Keep in step with the headers in vercel.json until that is retired.
 # docs/DEPLOY.md explains each one.
 /*
   Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests

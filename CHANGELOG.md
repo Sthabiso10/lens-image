@@ -6,6 +6,15 @@ All notable changes are documented here. The format follows
 
 All five packages are released together at the same version.
 
+## [Unreleased]
+
+### Changed
+
+- **The docs site moved to Cloudflare**, at
+  `lens-image.sthabisod10.workers.dev`. `lens-image-docs.vercel.app` is retired.
+  The README links point at the new host, and npm's package pages pick them up
+  at the next release.
+
 ## [0.1.3], 2026-09-18
 
 No code changes. `@lens-image/react@0.1.2` was accepted by the registry but

@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://lens-image-docs.vercel.app">
+  <a href="https://lens-image.sthabisod10.workers.dev">
     <img src="https://raw.githubusercontent.com/Sthabiso10/lens-image/main/docs/media/logo.png?v=81977681" alt="Lens" width="368" />
   </a>
 </p>
@@ -23,9 +23,9 @@
 </p>
 
 <p align="center">
-  <a href="https://lens-image-docs.vercel.app/playground"><strong>Try the live playground</strong></a>
+  <a href="https://lens-image.sthabisod10.workers.dev/playground"><strong>Try the live playground</strong></a>
   &nbsp;·&nbsp;
-  <a href="https://lens-image-docs.vercel.app">Docs</a>
+  <a href="https://lens-image.sthabisod10.workers.dev">Docs</a>
   &nbsp;·&nbsp;
   <a href="#quick-start">Quick start</a>
   &nbsp;·&nbsp;
