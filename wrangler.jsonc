@@ -3,11 +3,19 @@
   // There is no Worker script: every request is served straight from the
   // files, which Cloudflare does not bill for.
   //
-  // Build from the repository root first, so the workspace library is present:
-  //   npm run build --workspace @lens-image/docs
-  // then deploy with `npx wrangler deploy`. docs/DEPLOY.md has the details.
+  // `npx wrangler deploy` from the repository root builds the site and then
+  // uploads it. docs/DEPLOY.md has the details.
   "name": "lens-image-docs",
   "compatibility_date": "2026-09-26",
+  "build": {
+    // Runs before every deploy and dev session, so the export always exists
+    // and is current. A bare `npm run build` builds only the libraries, which
+    // is what broke the first Cloudflare deploy.
+    "command": "npm run build --workspace @lens-image/docs",
+    // For `wrangler dev`: rebuild when the site's source changes. Never
+    // include out/, or each build would trigger the next.
+    "watch_dir": ["packages/docs/app", "packages/docs/components", "packages/docs/lib", "packages/docs/public"]
+  },
   "assets": {
     "directory": "./packages/docs/out",
     // Serve out/404.html for unknown paths. trailingSlash: true means every

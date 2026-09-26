@@ -125,25 +125,32 @@ pick this repo, then:
 | Setting | Value |
 | --- | --- |
 | Root directory | `/` (the repository root, not `packages/docs`) |
-| Build command | `npm run build --workspace @lens-image/docs` |
+| Build command | leave empty |
 | Deploy command | `npx wrangler deploy` |
 
 The Worker name comes from `wrangler.jsonc` (`lens-image-docs`), so the site
-lands on `lens-image-docs.<account>.workers.dev`. The root-directory and build
-command reasons are the same as for Vercel above: the whole workspace has to be
-installed, and a bare `npm run build` only builds the libraries.
+lands on `lens-image-docs.<account>.workers.dev`. The root directory is the
+repository root for the same reason as on Vercel: the whole workspace has to be
+installed.
+
+`wrangler deploy` builds the site itself, through `build.command` in
+`wrangler.jsonc`, so the dashboard build command is not needed. Anything set
+there runs first and just builds the site twice. **Never set it to a bare
+`npm run build`**: that builds only the libraries, and on its own it broke the
+first Cloudflare deploy with "The directory specified by the assets.directory
+field does not exist".
 
 ### Deploying by hand
 
 ```bash
-npm run build --workspace @lens-image/docs
-npx wrangler deploy
+npx wrangler deploy     # builds the site, then uploads it
 ```
 
 Current wrangler needs **Node 22**. Cloudflare's build image already has it.
 Locally, on Node 20, only an older wrangler runs, and it cannot start a Worker
 whose `compatibility_date` is newer than it knows about, so preview with a date
-override (which does not touch the config):
+override (which does not touch the config). It builds the site first too, and
+rebuilds when `app`, `components`, `lib` or `public` in `packages/docs` change:
 
 ```bash
 npx wrangler@4.86.0 dev --compatibility-date 2026-05-03
