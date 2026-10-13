@@ -1,0 +1,33 @@
+/*
+ * The progress rail beside "On this page": a thin line that fills down the
+ * list as the page scrolls.
+ *
+ * Driven by the root scroll position in CSS, so it costs no JavaScript. It is
+ * only drawn where scroll-driven animations exist and the reader has not asked
+ * for reduced motion; everywhere else the list keeps its plain hairline and the
+ * sliding marker on the active entry, which carry the same information.
+ */
+
+.fill {
+  display: none;
+}
+
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .fill {
+      display: block;
+      animation: fill linear both;
+      animation-timeline: scroll(root);
+      transform-origin: top;
+    }
+  }
+}
+
+@keyframes fill {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}

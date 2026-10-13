@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useIndicator } from '@/lib/use-indicator';
+import styles from './TableOfContents.module.css';
 
 interface Heading {
   id: string;
@@ -115,11 +116,17 @@ export function TableOfContents() {
 
   return (
     <nav aria-label="On this page" className="flex flex-col gap-2 text-sm">
-      <p className="label mb-1">On this page</p>
+      <p className="kicker mb-2 self-start">On this page</p>
       <ul ref={list} className="relative flex flex-col border-l border-line">
+        {/* Page progress: a faint accent line that fills the rail top to bottom. */}
         <span
           aria-hidden="true"
-          className="absolute -left-px w-px bg-accent-bright"
+          className={`${styles.fill} absolute -left-px inset-y-0 w-px bg-accent/50`}
+        />
+        {/* The active entry: a short, brighter segment riding the same rail. */}
+        <span
+          aria-hidden="true"
+          className="absolute -left-px w-0.5 rounded-full bg-accent-bright"
           style={{
             top: bar.top,
             height: bar.height,

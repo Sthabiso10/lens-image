@@ -1,15 +1,26 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, JetBrains_Mono } from 'next/font/google';
+import { Inter, Inter_Tight, JetBrains_Mono } from 'next/font/google';
 import { SiteFooter } from '@/components/SiteFooter';
 import { SiteHeader } from '@/components/SiteHeader';
 import './globals.css';
 
 /**
- * One typeface for the interface, one for code. Headings differ from body text
- * by weight and tracking rather than by family. A second display face would add
- * expression the site does not need.
+ * Inter for the interface, JetBrains Mono for code, and Inter Tight for display
+ * headings. Inter Tight is the same drawing as Inter with tighter spacing, so
+ * large type reads as one family with the body rather than a second voice, and
+ * it holds up at the -0.05em tracking the biggest sizes use.
+ *
+ * The CSS variable is `--font-inter-tight` rather than `--font-display`: the
+ * Tailwind token in globals.css is called `--font-display` and points at this
+ * one, and a variable cannot be defined in terms of itself.
  */
 const sans = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
+
+const display = Inter_Tight({
+  subsets: ['latin'],
+  variable: '--font-inter-tight',
+  display: 'swap',
+});
 
 const mono = JetBrains_Mono({
   subsets: ['latin'],
@@ -44,12 +55,12 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#08090a',
+  themeColor: '#0a0a0a',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
+    <html lang="en" className={`${sans.variable} ${display.variable} ${mono.variable}`}>
       <body className="min-h-screen">
         <a href="#main" className="skip-link">
           Skip to content

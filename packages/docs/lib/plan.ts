@@ -105,6 +105,23 @@ async function hashFile(file: File): Promise<string> {
   }
 }
 
+/**
+ * Clamps each requested width to the source and drops the duplicates this
+ * creates.
+ *
+ * With no upscaling, a 1600w and a 1200w request against a 1000px source both
+ * become 1000. Left alone that is two variants with the same label, the same
+ * storage key and the same React key, and the real library rejects same-label
+ * sizes outright. The first occurrence wins, so the order the caller asked for
+ * (largest first, in the presets) survives. An empty list means "the original
+ * size". A source of unknown width (0) is passed through unclamped.
+ */
+export function uniqueWidths(requested: readonly number[], sourceWidth: number): number[] {
+  if (requested.length === 0) return [sourceWidth];
+  const clamped = requested.map((w) => (sourceWidth > 0 ? Math.min(w, sourceWidth) : w));
+  return [...new Set(clamped)];
+}
+
 /** Expands the controls into the variant list Lens would produce. */
 export function plan(
   input: PlanInput,
@@ -145,7 +162,7 @@ export function plan(
     };
   }
 
-  const widths = input.widths.length > 0 ? input.widths : [meta.width];
+  const widths = uniqueWidths(input.widths, meta.width);
   const variants: PlannedVariant[] = [];
 
   for (const format of formats) {

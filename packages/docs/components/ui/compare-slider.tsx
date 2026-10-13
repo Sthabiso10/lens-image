@@ -35,6 +35,16 @@ const clamp = (value: number, min: number, max: number) =>
 const PAGE_KEYS = ['PageUp', 'PageDown'];
 const ARROW_KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
 
+/**
+ * Whether a key press is one the slider acts on. Exported so a caller that
+ * wants to react to "the user is steering this" (cancel an intro animation, say)
+ * does not treat Tab, Shift or a letter as steering, and so its list cannot
+ * drift from the handler below.
+ */
+export function isSliderKey(key: string): boolean {
+  return key === 'Home' || key === 'End' || PAGE_KEYS.includes(key) || ARROW_KEYS.includes(key);
+}
+
 interface ContextValue {
   value: number;
   interaction: Interaction;
@@ -143,16 +153,22 @@ export function CompareSlider({
       set(100);
       return;
     }
-    if (!PAGE_KEYS.includes(event.key) && !ARROW_KEYS.includes(event.key)) return;
+    if (!isSliderKey(event.key)) return;
 
     event.preventDefault();
 
     // Page keys and shift-arrow both mean "a big step".
     const big = PAGE_KEYS.includes(event.key) || event.shiftKey;
     const vertical = orientation === 'vertical';
+    // Which way is "back" (towards 0)? Horizontal follows the slider
+    // convention every native range input uses: left and down lower the value,
+    // right and up raise it, and PageDown/PageUp do the same in bigger steps.
+    // Vertical is mirrored to follow the handle on screen, because 0 is the top
+    // edge there: up and left move it towards the top (lower the value), down
+    // and right move it towards the bottom.
     const back = vertical
-      ? ['ArrowUp', 'PageUp'].includes(event.key)
-      : ['ArrowLeft', 'PageUp'].includes(event.key);
+      ? ['ArrowUp', 'ArrowLeft', 'PageUp'].includes(event.key)
+      : ['ArrowLeft', 'ArrowDown', 'PageDown'].includes(event.key);
 
     set(value + step * (big ? 10 : 1) * (back ? -1 : 1));
   };
@@ -165,6 +181,9 @@ export function CompareSlider({
   return (
     <CompareSliderContext.Provider value={context}>
       <div
+        // Before the spread, so a caller that knows what the two sides are can
+        // say so ("40% shown as compressed") instead of this generic text.
+        aria-valuetext={`${Math.round(value)}% optimized`}
         {...props}
         ref={rootRef}
         role="slider"
@@ -173,11 +192,15 @@ export function CompareSlider({
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(value)}
-        aria-valuetext={`${Math.round(value)}% optimized`}
         data-orientation={orientation}
         className={cn(
           'relative isolate select-none overflow-hidden outline-none',
-          'touch-none focus-visible:ring-2 focus-visible:ring-accent',
+          // Not `touch-none`: that stops the browser scrolling the page when a
+          // finger lands on the slider, which on a phone traps the page under
+          // a full-width image. Only the drag axis is claimed; the other one
+          // stays free to scroll.
+          'focus-visible:ring-2 focus-visible:ring-accent-bright',
+          orientation === 'horizontal' ? 'touch-pan-y' : 'touch-pan-x',
           orientation === 'horizontal' ? 'w-full' : 'h-full',
           className,
         )}
@@ -277,26 +300,56 @@ export function CompareSliderHandle({
                 : 'left-1/2 h-full w-0.5 -translate-x-1/2',
             )}
           />
-          {interaction === 'drag' && (
-            <div className="z-30 grid size-9 place-items-center rounded-full border border-line-strong bg-background/90 text-foreground shadow-panel backdrop-blur-sm">
-              <svg
-                viewBox="0 0 24 24"
-                width={14}
-                height={14}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-                className={vertical ? 'rotate-90' : undefined}
-              >
-                <path d="M9 6 3 12l6 6M15 6l6 6-6 6" />
-              </svg>
-            </div>
-          )}
+          {interaction === 'drag' && <CompareSliderGrip vertical={vertical} />}
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * The thing you hold: a small pill with an arrow pointing each way. It is drawn
+ * like the site's dark secondary controls (raised fill, hairline border), so
+ * the grip reads as one of the same family of buttons rather than a stray
+ * overlay.
+ *
+ * A pill rather than a round button because it is wider than it is tall, so it
+ * covers less of the picture while still being a comfortable 48px target, and
+ * the two arrows say "slide this" without a tooltip. Exported so a caller that
+ * supplies its own divider line can keep the same grip.
+ */
+export function CompareSliderGrip({
+  dragging = false,
+  vertical = false,
+  className,
+}: {
+  /** Lifts the pill slightly while it is being held. */
+  dragging?: boolean;
+  vertical?: boolean;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'z-30 grid h-8 w-12 place-items-center rounded-full border border-line-strong bg-raised text-foreground shadow-panel transition-transform duration-150',
+        dragging && 'scale-110',
+        vertical && 'rotate-90',
+        className,
+      )}
+    >
+      <svg
+        viewBox="1 4 22 16"
+        width={22}
+        height={16}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M9 7 4 12l5 5M15 7l5 5-5 5" />
+      </svg>
     </div>
   );
 }
@@ -316,7 +369,7 @@ export function CompareSliderLabel({
       data-slot="compare-slider-label"
       {...props}
       className={cn(
-        'absolute z-20 rounded-md border border-line bg-background/80 px-2.5 py-1 font-mono text-2xs text-secondary backdrop-blur-sm',
+        'absolute z-20 rounded-[4px] border border-line-strong bg-background/85 px-2 py-1 font-mono text-[10.5px] leading-4 tracking-[0.08em] text-secondary backdrop-blur-sm',
         vertical
           ? side === 'before'
             ? 'left-2 top-2'

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { CodeBlock } from '@/components/CodeBlock';
 import { ArrowRight } from '@/components/Icons';
 import { Callout, PageHeader, Prose } from '@/components/Prose';
-import { NAV_ORDER } from '@/lib/nav';
+import { NAV_GROUPS, VERSION } from '@/lib/nav';
 
 export const metadata: Metadata = { title: 'Introduction' };
 
@@ -17,19 +17,19 @@ const PACKAGES = [
   {
     name: '@lens-image/adapter-s3',
     role: 'Storage',
-    deps: 'AWS SDK is a peer',
+    deps: 'Core + AWS SDK as a peer',
     body: 'S3, and anything that speaks its API: R2, MinIO, Spaces, B2.',
   },
   {
     name: '@lens-image/adapter-local',
     role: 'Storage',
-    deps: '0 dependencies',
+    deps: 'Depends on core only',
     body: 'The filesystem, with atomic writes and path-traversal refusal.',
   },
   {
     name: '@lens-image/adapter-cloudinary',
     role: 'Storage',
-    deps: '0 dependencies',
+    deps: 'Depends on core only',
     body: 'Signed uploads over plain HTTP. The official SDK is not required.',
   },
   {
@@ -47,15 +47,42 @@ const ENGINE = `interface ImageEngine {
   transform(input: Uint8Array, op: TransformOp): Promise<EncodedImage>;
 }`;
 
-// The introduction links to everything after it, so drop the page itself.
-const NEXT_PAGES = NAV_ORDER.filter((item) => item.href !== '/docs');
+/*
+ * The introduction links to everything after it, so the page itself is dropped.
+ * Each card keeps the title of the nav group it came from ("Start here",
+ * "Reference"), which becomes its kicker, so the grid reads as a map of the
+ * docs rather than a flat list.
+ */
+const NEXT_PAGES = NAV_GROUPS.flatMap((group) =>
+  group.items
+    .filter((item) => item.href !== '/docs')
+    .map((item) => ({ ...item, category: group.title })),
+);
 
 export default function DocsIndexPage() {
   return (
     <>
       <PageHeader
-        section="Documentation"
+        section="Start here"
         title="Introduction"
+        eyebrow={
+          // Announcement pill. It points at the pipeline page
+          // because that is where the AVIF fallback is documented.
+          <Link
+            href="/docs/pipeline"
+            className="pill no-underline"
+          >
+            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-signal" />
+            <span>
+              <span className="font-mono text-xs tabular-nums text-foreground">v{VERSION}</span>
+              <span aria-hidden="true" className="mx-2 text-subtle">
+                ·
+              </span>
+              Graceful AVIF fallback
+            </span>
+            <ArrowRight className="btn-arrow h-3.5 w-3.5" />
+          </Link>
+        }
         lead="Lens resizes, compresses and converts images, then hands them to storage you choose. Start with getting started; the pipeline page is the one worth reading properly."
       />
 
@@ -82,21 +109,30 @@ export default function DocsIndexPage() {
           everything else is opt-in.
         </p>
 
-        <div className="grid gap-2">
+        {/*
+          One frame with hairline rows, rather than five separate cards: it
+          reads as a table of packages, which is what it is. The header strip
+          also keeps the frame's corner dots clear of the first row's text.
+        */}
+        <div className="frame">
+          <div className="flex items-center justify-between gap-4 border-b border-line px-8 py-2.5 font-mono text-[10.5px] uppercase leading-4 tracking-[0.14em] text-muted">
+            <span>Package</span>
+            <span>Dependencies</span>
+          </div>
           {PACKAGES.map((pkg) => (
             <div
               key={pkg.name}
-              className="rounded-lg border border-line bg-surface p-4 transition-colors hover:border-line-strong"
+              className="border-b border-line px-5 py-4 transition-colors last:border-b-0 hover:bg-raised/60"
             >
-              <div className="flex flex-wrap items-center gap-2.5">
-                <code className="font-mono text-sm text-foreground">{pkg.name}</code>
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                <code className="break-all font-mono text-sm text-foreground">{pkg.name}</code>
                 <span className="rounded border border-line px-1.5 py-0.5 text-xs text-muted">
                   {pkg.role}
                 </span>
                 {/* The claim the whole project rests on gets the signal colour. */}
                 <span
                   className={`ml-auto flex items-center gap-1.5 font-mono text-2xs ${
-                    pkg.deps.startsWith('0 ') ? 'text-signal' : 'text-subtle'
+                    pkg.deps.startsWith('0 ') ? 'text-signal' : 'text-muted'
                   }`}
                 >
                   {pkg.deps.startsWith('0 ') ? (
@@ -160,18 +196,26 @@ export default function DocsIndexPage() {
 
         <h2>Where to go next</h2>
 
-        <div className="grid gap-2 sm:grid-cols-2">
+        {/*
+          "Skill" cards: a framed card with the category as a
+          kicker, the page title in the display face, its summary, and an
+          arrow that slides on hover. `no-underline!` is needed because the
+          prose rules underline every link in the article, and a decoration
+          set on the anchor cannot be turned off by its children.
+        */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {NEXT_PAGES.map((page) => (
             <Link
               key={page.href}
               href={page.href}
-              className="group flex flex-col gap-1 rounded-lg border border-line bg-surface p-4 no-underline transition-[border-color,background-color,transform] duration-300 ease-out-expo hover:-translate-y-0.5 hover:border-line-strong hover:bg-raised"
+              className="frame group flex flex-col gap-3 px-5 pb-5 pt-9 no-underline! transition-[border-color,background-color] duration-300 ease-out-expo hover:border-line-strong hover:bg-raised"
             >
-              <span className="flex items-center gap-1.5 text-base font-medium text-foreground">
-                {page.label}
-                <ArrowRight className="h-3.5 w-3.5 text-subtle transition-transform group-hover:translate-x-0.5" />
-              </span>
+              <span className="kicker self-start">{page.category}</span>
+              <span className="display text-xl text-foreground">{page.label}</span>
               <span className="text-sm text-muted">{page.summary}</span>
+              <span aria-hidden="true" className="arrow-chip mt-auto">
+                <ArrowRight className="btn-arrow h-3 w-3" />
+              </span>
             </Link>
           ))}
         </div>

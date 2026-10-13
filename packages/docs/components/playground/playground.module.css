@@ -1,0 +1,177 @@
+/*
+ * The pieces of the playground that Tailwind utilities cannot say cleanly:
+ * a range input's vendor pseudo-elements, a repeating-gradient tick bar, and
+ * the status dot's pulse. Everything else is utility classes in the components.
+ *
+ * Colours come from the theme variables in globals.css, never literals, so the
+ * studio moves with the rest of the site if the palette does.
+ */
+
+/* ---- range slider ------------------------------------------------------- */
+
+/*
+ * A thin track with an accent fill and a round thumb, like the sliders on a
+ * node panel. `--fill` is set inline to the thumb's position as a percentage;
+ * the fill is a hard-stop gradient on the track, which works in every engine,
+ * whereas `::-webkit-slider-runnable-track` has no "progress" pseudo-element.
+ * Firefox has one (`::-moz-range-progress`), so it uses that instead.
+ *
+ * The input itself is 24px tall so the touch target is comfortable, while the
+ * track inside it is 3px.
+ */
+.range {
+  --fill: 50%;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 1.5rem;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.range::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    var(--accent) var(--fill),
+    var(--line-strong) var(--fill)
+  );
+}
+
+.range::-moz-range-track {
+  height: 3px;
+  border-radius: 9999px;
+  background: var(--line-strong);
+}
+
+.range::-moz-range-progress {
+  height: 3px;
+  border-radius: 9999px;
+  background: var(--accent);
+}
+
+/*
+ * Both engines draw the thumb at 14px overall, border included. `border-box` is
+ * stated because the two engines disagree about what a bare `width` on a thumb
+ * means (Firefox once drew 10px of fill plus the border, 14px, while WebKit's
+ * 14px already included it), and a slider should not change size by browser.
+ */
+.range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  margin-top: -5.5px;
+  border: 2px solid var(--bg);
+  border-radius: 9999px;
+  background: var(--fg);
+  box-shadow: 0 0 0 1px var(--fg-subtle);
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.range::-moz-range-thumb {
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--bg);
+  border-radius: 9999px;
+  background: var(--fg);
+  box-shadow: 0 0 0 1px var(--fg-subtle);
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.range:not(:disabled):hover::-webkit-slider-thumb,
+.range:not(:disabled):hover::-moz-range-thumb {
+  transform: scale(1.12);
+}
+
+/* The global focus ring is an outline on the input; the thumb needs its own. */
+.range:focus-visible {
+  outline: none;
+}
+
+.range:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--accent-bright);
+}
+
+.range:focus-visible::-moz-range-thumb {
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--accent-bright);
+}
+
+/* ---- tick bars ---------------------------------------------------------- */
+
+/*
+ * A bar drawn as thin vertical ticks instead of a solid fill, so it reads as a
+ * measurement. `.ticks` is the track and carries a faint copy of the ticks;
+ * `.tickFill` sits on top, clipped to a width, in the bar's own colour. The
+ * width transition is what makes the bar slide as the quality slider moves.
+ */
+.ticks {
+  position: relative;
+  height: 1.75rem;
+  overflow: hidden;
+  border-radius: 4px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--line-strong) 0 2px,
+    transparent 2px 6px
+  );
+}
+
+.tickFill {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  min-width: 3px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--tick, var(--fg-muted)) 0 2px,
+    transparent 2px 6px
+  );
+  transition: width 700ms var(--ease-out-expo);
+}
+
+/* ---- status ------------------------------------------------------------- */
+
+/* A dot that breathes while a stage is in flight. */
+.pulse {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+    transform: scale(0.7);
+  }
+}
+
+/*
+ * Lines of the status log arrive from just below, so a stage appearing reads
+ * as the log advancing instead of text swapping in place.
+ */
+.statusLine {
+  animation: line-in 260ms var(--ease-out-expo) both;
+}
+
+@keyframes line-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}

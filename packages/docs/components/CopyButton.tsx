@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, Copy } from './Icons';
 
 /**
- * Copy-to-clipboard with a two-second confirmation.
+ * Copy-to-clipboard with a two-second confirmation. It is a small (`btn-sm`,
+ * 32px) icon button; the confirmation is the `success` state of that same
+ * control, so it needs no colours of its own.
  *
  * `navigator.clipboard` is undefined on insecure origins and inside some
  * embedded webviews, so the failure path is silent rather than a thrown
@@ -32,9 +34,8 @@ export function CopyButton({ value, label = 'Copy' }: { value: string; label?: s
       type="button"
       onClick={copy}
       aria-label={copied ? 'Copied' : label}
-      className={`grid h-7 w-7 place-items-center rounded-md border bg-raised text-muted transition-[color,border-color,transform] duration-200 hover:text-foreground active:scale-90 ${
-        copied ? 'border-signal/40' : 'border-line hover:border-line-strong'
-      }`}
+      className="btn-icon btn-sm"
+      data-state={copied ? 'success' : undefined}
     >
       {/*
         Keyed, so each swap remounts and plays the pop from the start. The copy

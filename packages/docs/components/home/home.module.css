@@ -1,0 +1,390 @@
+/*
+ * Motion that belongs to one home-page section, kept out of globals.css.
+ *
+ * Every animation here is switched off under prefers-reduced-motion. The
+ * global reduced-motion rule only shortens durations, which for an endless
+ * loop would freeze it mid-frame, so each rule here opts out properly. The
+ * chip marquee lives in its own module, `marquee.module.css`.
+ */
+
+/* ---- pipeline wires ------------------------------------------------------ */
+
+/* Marching dashes: the dash pattern is 4 + 8, so one period is 12 units. */
+.wire {
+  stroke-dasharray: 4 8;
+  animation: march 1.4s linear infinite;
+}
+
+@keyframes march {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wire {
+    animation: none;
+  }
+}
+
+/* ---- hero: headline words ------------------------------------------------ */
+
+/*
+ * One word of the hero headline. Each rises, sharpens and fades in on a delay
+ * set by its index (`--i`), so the sentence is read out in order. Easing is
+ * the site's easeOutExpo, the same curve as every other arrival.
+ */
+.word {
+  display: inline-block;
+  animation: word-in 1000ms var(--ease-out-expo, ease-out) both;
+  animation-delay: calc(var(--word-delay, 90ms) + var(--i, 0) * var(--word-stagger, 60ms));
+}
+
+@keyframes word-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.45em);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .word {
+    animation: none;
+  }
+}
+
+/* ---- hero: pausing off-screen motion ------------------------------------- */
+
+/*
+ * `PauseGate` sets `data-paused` when the hero is scrolled away or the tab is
+ * hidden. Freezing the animations (rather than removing them) keeps every loop
+ * where it was, so nothing jumps on the way back.
+ */
+.gate[data-paused] *,
+.gate[data-paused] *::before,
+.gate[data-paused] *::after {
+  animation-play-state: paused !important;
+}
+
+/* ---- hero: live run card ------------------------------------------------- */
+
+/*
+ * One shared 20s clock. The five stages take 1.3s each (6.5% of the loop), so
+ * the result is on screen from about a third of the way in until just before
+ * the loop turns over: roughly two thirds of the time. Everything starts
+ * 700ms in, when the card itself has finished fading up.
+ */
+.run {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Stages and result share one grid cell and cross-fade within it. */
+.runBody {
+  display: grid;
+}
+
+.stage,
+.result {
+  grid-area: 1 / 1;
+  align-self: center;
+  opacity: 0;
+}
+
+.stage {
+  animation: stage-show 20s linear infinite;
+  animation-delay: calc(0.7s + var(--i, 0) * 1.3s);
+}
+
+.result {
+  animation: result-show 20s linear infinite;
+  animation-delay: 0.7s;
+}
+
+/*
+ * Each stage is gone (5.8%) before the next begins (6.5%), so two lines are
+ * never on screen at once.
+ */
+@keyframes stage-show {
+  0% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  1%,
+  5% {
+    opacity: 1;
+    transform: none;
+  }
+  5.8%,
+  100% {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes result-show {
+  0%,
+  32.5% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  34.5%,
+  96% {
+    opacity: 1;
+    transform: none;
+  }
+  98.5%,
+  100% {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+
+.spinner {
+  flex-shrink: 0;
+  width: 0.625rem;
+  height: 0.625rem;
+  border: 1.5px solid var(--fg-muted);
+  border-top-color: transparent;
+  border-radius: 9999px;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.runBar {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--accent);
+  transform-origin: left;
+  transform: scaleX(0);
+  animation: run-bar 20s linear infinite;
+  animation-delay: 0.7s;
+}
+
+@keyframes run-bar {
+  0% {
+    transform: scaleX(0);
+    background: var(--accent);
+  }
+  32.5% {
+    transform: scaleX(1);
+    background: var(--accent);
+  }
+  34.5%,
+  96% {
+    transform: scaleX(1);
+    background: var(--signal);
+  }
+  98.5%,
+  100% {
+    transform: scaleX(1);
+    background: var(--signal);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The finished state and nothing else. */
+  .stage {
+    display: none;
+  }
+
+  .result {
+    animation: none;
+    opacity: 1;
+  }
+
+  .runBar {
+    animation: none;
+    transform: none;
+    background: var(--signal);
+  }
+}
+
+/* ---- hero: category stack ------------------------------------------------ */
+
+/*
+ * A window five pills tall, fading at top and bottom, over a track that
+ * climbs one pill every 2.4s (eight pills, so a 19.2s loop). Each move takes
+ * the last 3.5% of its slot and the pill then rests for the other 9%, so
+ * the column ticks upward rather than gliding.
+ */
+.stack {
+  --pitch: 2.25rem;
+  height: calc(var(--pitch) * 5);
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 30%, #000 70%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 30%, #000 70%, transparent 100%);
+}
+
+.stackTrack {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  animation: climb 19.2s var(--ease-out-expo, ease-out) infinite;
+}
+
+.stackItem {
+  display: flex;
+  height: var(--pitch);
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.chip {
+  color: var(--fg-muted);
+  border-color: var(--line-strong);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  animation: chip-lit 19.2s linear infinite;
+  animation-delay: calc(var(--d, 0) * 2.4s);
+}
+
+@keyframes climb {
+  0%,
+  9% {
+    transform: translateY(0);
+  }
+  12.5%,
+  21.5% {
+    transform: translateY(calc(var(--pitch) * -1));
+  }
+  25%,
+  34% {
+    transform: translateY(calc(var(--pitch) * -2));
+  }
+  37.5%,
+  46.5% {
+    transform: translateY(calc(var(--pitch) * -3));
+  }
+  50%,
+  59% {
+    transform: translateY(calc(var(--pitch) * -4));
+  }
+  62.5%,
+  71.5% {
+    transform: translateY(calc(var(--pitch) * -5));
+  }
+  75%,
+  84% {
+    transform: translateY(calc(var(--pitch) * -6));
+  }
+  87.5%,
+  96.5% {
+    transform: translateY(calc(var(--pitch) * -7));
+  }
+  100% {
+    transform: translateY(calc(var(--pitch) * -8));
+  }
+}
+
+/* Lit while the pill rests in the middle slot, then back to quiet. */
+@keyframes chip-lit {
+  0%,
+  9% {
+    color: var(--fg);
+    border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+    background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  }
+  12.5%,
+  100% {
+    color: var(--fg-muted);
+    border-color: var(--line-strong);
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stackTrack,
+  .chip {
+    animation: none;
+  }
+
+  .duplicate {
+    display: none;
+  }
+
+  /* Still, with the same pill lit as the page loads: the third slot. */
+  .stackItem:nth-child(3) .chip {
+    color: var(--fg);
+    border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+    background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  }
+}
+
+/* ---- hero: scroll cue ---------------------------------------------------- */
+
+/*
+ * Only drawn on wide screens with motion allowed: it is a nudge, and a phone
+ * has nothing to be nudged about. Where scroll-driven animation exists it
+ * fades out over the first 160px of scrolling.
+ */
+.cue {
+  display: none;
+}
+
+@media (min-width: 768px) and (prefers-reduced-motion: no-preference) {
+  .cue {
+    position: absolute;
+    bottom: 0.875rem;
+    left: 50%;
+    translate: -50% 0;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    pointer-events: none;
+  }
+}
+
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .cue {
+      animation: cue-out linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0px 160px;
+    }
+  }
+}
+
+@keyframes cue-out {
+  to {
+    opacity: 0;
+  }
+}
+
+.cueLine {
+  position: relative;
+  width: 2rem;
+  height: 1px;
+  overflow: hidden;
+  background: var(--line-strong);
+}
+
+.cueLine::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--fg-muted);
+  animation: cue-run 2.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes cue-run {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}

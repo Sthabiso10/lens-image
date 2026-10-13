@@ -127,10 +127,6 @@ export type SqueezeCarouselProps = {
     interval?: number;
     /** Show the two arrow buttons. Default `true`. */
     controls?: boolean;
-    /** Fill behind the button, the arrows and the focus ring. Defaults to the theme's primary. */
-    accent?: string;
-    /** What sits on top of that fill. The label and the arrow heads. */
-    accentForeground?: string;
     /** What a screen reader calls the carousel. Default `"Featured"`. */
     label?: string;
     /** Extra classes for a single panel. */
@@ -156,8 +152,6 @@ export function SqueezeCarousel({
     autoplay = false,
     interval = 6000,
     controls = true,
-    accent = "var(--sq-accent, var(--primary, currentColor))",
-    accentForeground = "var(--sq-accent-foreground, var(--primary-foreground, white))",
     label = "Featured",
     panelClassName,
     className,
@@ -338,8 +332,6 @@ export function SqueezeCarousel({
         "--sq-ms": `${ms}ms`,
         // easeOutExpo, the curve the original slides on
         "--sq-ease": "cubic-bezier(0.16, 1, 0.3, 1)",
-        "--sq-fill": accent,
-        "--sq-on-fill": accentForeground,
         // A 16:9 block sets both the open card and the size every picture is
         // drawn at, so a picture keeps one scale however narrow its card gets.
         "--sq-hero": "calc(var(--sq-h) * 16 / 9)",
@@ -409,7 +401,7 @@ export function SqueezeCarousel({
                                 className={cn(
                                     "relative isolate h-full shrink-0 cursor-pointer overflow-hidden bg-muted p-0",
                                     "outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-                                    "focus-visible:ring-[var(--sq-fill)] focus-visible:ring-offset-background",
+                                    "focus-visible:ring-accent-bright focus-visible:ring-offset-background",
                                     panelClassName,
                                 )}
                                 style={{
@@ -505,6 +497,10 @@ function Picture({ slide }: { slide: SqueezeSlide }) {
             <img
                 src={slide.image}
                 alt={slide.imageAlt ?? ""}
+                // Lazy, so a phone (where the carousel is display:none and the
+                // list is shown instead) never fetches the carousel's images.
+                loading="lazy"
+                decoding="async"
                 draggable={false}
                 className="absolute inset-y-0 left-1/2 h-full max-w-none -translate-x-1/2 object-cover"
                 style={box}
@@ -521,6 +517,12 @@ function Picture({ slide }: { slide: SqueezeSlide }) {
     );
 }
 
+/**
+ * A previous / next arrow. It is the site's icon button (`btn-icon`, a hairline
+ * circle), not a filled square: a carousel's controls are chrome, and the
+ * panels beside them are the thing worth looking at. The focus ring is the
+ * global one.
+ */
 function Arrow({
     back = false,
     label,
@@ -531,18 +533,7 @@ function Arrow({
     onClick: () => void;
 }) {
     return (
-        <button
-            type="button"
-            aria-label={label}
-            onClick={onClick}
-            className={cn(
-                "grid size-9 cursor-pointer place-items-center rounded-md",
-                "bg-[var(--sq-fill)] text-[var(--sq-on-fill)]",
-                "transition-opacity hover:opacity-85 outline-none",
-                "focus-visible:ring-2 focus-visible:ring-[var(--sq-fill)]",
-                "focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            )}
-        >
+        <button type="button" aria-label={label} onClick={onClick} className="btn-icon">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
                 <path
                     d={
@@ -556,7 +547,11 @@ function Arrow({
     );
 }
 
-/** The button under the copy. A link when it has an `href`, a button otherwise. */
+/**
+ * The button under the copy: the site's small secondary (`btn-secondary
+ * btn-sm`) with its trailing arrow. A link when it has an `href`, a button
+ * otherwise.
+ */
 function Action({ slide, shown }: { slide: SqueezeSlide; shown: boolean }) {
     const inside = (
         <>
@@ -567,7 +562,7 @@ function Action({ slide, shown }: { slide: SqueezeSlide; shown: boolean }) {
                 viewBox="0 0 6 9"
                 fill="none"
                 aria-hidden="true"
-                className="transition-transform duration-200 group-hover/sq-action:translate-x-0.5"
+                className="btn-arrow"
             >
                 <path
                     d="M1.2 1 4.7 4.5 1.2 8"
@@ -580,13 +575,7 @@ function Action({ slide, shown }: { slide: SqueezeSlide; shown: boolean }) {
         </>
     );
 
-    const dress = cn(
-        "group/sq-action inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-md",
-        "bg-[var(--sq-fill)] px-4 py-2.5 text-sm font-medium text-[var(--sq-on-fill)]",
-        "transition-opacity hover:opacity-85 outline-none",
-        "focus-visible:ring-2 focus-visible:ring-[var(--sq-fill)]",
-        "focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-    );
+    const dress = "btn-secondary btn-sm";
 
     if (slide.href) {
         return (
