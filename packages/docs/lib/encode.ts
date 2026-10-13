@@ -141,19 +141,33 @@ export function revoke(variants: readonly { url: string }[]): void {
  * Sequential on purpose. Canvas work is synchronous on the main thread, so
  * firing ten encodes at once does not make them finish sooner: it just holds
  * the thread long enough for the quality slider to stop tracking the pointer.
+ *
+ * `onProgress` fires just before each job starts, so a status line can say
+ * which variant the encoder is actually on rather than guessing from a timer.
  */
 export async function encodeAll(
   bitmap: ImageBitmap,
   jobs: readonly EncodeOptions[],
   signal?: AbortSignal,
+  onProgress?: (index: number, total: number, job: EncodeOptions) => void,
 ): Promise<EncodedVariant[]> {
   const out: EncodedVariant[] = [];
 
-  for (const job of jobs) {
-    if (signal?.aborted) break;
-    out.push(await encodeVariant(bitmap, job));
-    // Yield so the slider keeps repainting between variants.
-    await new Promise((resolve) => setTimeout(resolve, 0));
+  // Each finished variant owns a live object URL. If a later job throws (a
+  // format the browser cannot encode, a closed bitmap), nobody receives `out`,
+  // so the URLs already minted would be held until the page closes. Release
+  // them here, then let the error through.
+  try {
+    for (const [index, job] of jobs.entries()) {
+      if (signal?.aborted) break;
+      onProgress?.(index, jobs.length, job);
+      out.push(await encodeVariant(bitmap, job));
+      // Yield so the slider keeps repainting between variants.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  } catch (error) {
+    revoke(out);
+    throw error;
   }
 
   if (signal?.aborted) {

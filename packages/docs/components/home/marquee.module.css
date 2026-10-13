@@ -1,0 +1,88 @@
+/*
+ * The action-chip marquee, kept in its own file. The rows slide endlessly, so
+ * every rule that moves is switched off under prefers-reduced-motion: the global
+ * reduced-motion rule only shortens durations, which for an endless marquee
+ * would freeze it mid-slide.
+ */
+
+.marquee {
+  overflow: hidden;
+  /* Chips fade in and out at the edges instead of being sliced off. */
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+}
+
+/*
+ * The track holds two identical groups side by side and slides by exactly half
+ * its width, so the second group is where the first started and the loop has
+ * no seam. Each group carries its own trailing padding for the same reason.
+ */
+.track {
+  display: flex;
+  width: max-content;
+  animation: slide var(--marquee-duration, 60s) linear infinite;
+}
+
+.reverse {
+  animation-direction: reverse;
+}
+
+.group {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+/*
+ * Hovering a row stops all of them so a chip can be read, and so does the
+ * Pause button (WCAG 2.2.2: motion that lasts over five seconds needs a way to
+ * stop it that does not depend on holding a pointer over it).
+ */
+.rows:hover .track,
+.rows[data-paused='true'] .track {
+  animation-play-state: paused;
+}
+
+@keyframes slide {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  /* Static: one wrapped, centred cluster per row, and the duplicate is dropped. */
+  .track {
+    animation: none;
+    width: auto;
+    justify-content: center;
+  }
+
+  /*
+   * The base rule's flex-shrink:0 would keep the group at its one-line width,
+   * and the overflow-hidden marquee would then clip the chips instead of
+   * letting them wrap. Allowing it to shrink to the container is what makes
+   * flex-wrap actually wrap.
+   */
+  .group {
+    flex: 0 1 auto;
+    max-width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding-right: 0;
+  }
+
+  .duplicate {
+    display: none;
+  }
+
+  /* Nothing is moving, so there is nothing to pause. */
+  .toggle {
+    display: none;
+  }
+}

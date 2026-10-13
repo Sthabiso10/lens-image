@@ -15,13 +15,17 @@ export default function NotFound() {
     <div className="mx-auto flex max-w-shell flex-col items-center px-4 py-24 text-center sm:py-32">
       <p
         aria-hidden="true"
-        className="animate-focus-in select-none font-mono text-7xl font-semibold tracking-tight text-foreground sm:text-8xl"
+        className="display animate-focus-in select-none text-7xl text-foreground sm:text-[9rem] sm:leading-none"
       >
         404
       </p>
 
+      <p className="kicker mt-8 animate-fade-in" style={{ animationDelay: '400ms' }}>
+        Error 404
+      </p>
+
       <h1
-        className="mt-6 animate-rise text-2xl font-semibold text-foreground"
+        className="display mt-6 animate-rise text-3xl text-foreground"
         style={{ animationDelay: '500ms' }}
       >
         This page is out of focus
@@ -42,10 +46,12 @@ export default function NotFound() {
           >
             <Link
               href={page.href}
-              className="group flex h-full items-center justify-between gap-2 rounded-lg border border-line bg-surface px-4 py-3 text-sm font-medium text-foreground transition-[border-color,background-color,transform] duration-300 ease-out-expo hover:-translate-y-0.5 hover:border-line-strong hover:bg-raised"
+              className="frame group flex h-full items-center justify-between gap-2 px-5 py-4 text-sm font-medium text-foreground transition-[border-color,background-color,transform] duration-300 ease-out-expo hover:-translate-y-0.5 hover:border-line-strong hover:bg-raised"
             >
               {page.label}
-              <ArrowRight className="h-3.5 w-3.5 text-subtle transition-[color,transform] duration-300 ease-out-expo group-hover:translate-x-0.5 group-hover:text-accent-bright" />
+              <span aria-hidden="true" className="arrow-chip">
+                <ArrowRight className="btn-arrow h-3 w-3" />
+              </span>
             </Link>
           </li>
         ))}
@@ -53,10 +59,13 @@ export default function NotFound() {
 
       <Link
         href="/"
-        className="btn btn-ghost mt-6 animate-fade-in"
+        className="btn-light mt-8 animate-fade-in"
         style={{ animationDelay: '1200ms' }}
       >
         Back to the home page
+        <span className="btn-nub">
+          <ArrowRight className="btn-arrow h-3 w-3" />
+        </span>
       </Link>
     </div>
   );

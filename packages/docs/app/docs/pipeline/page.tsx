@@ -112,7 +112,7 @@ export default function PipelinePage() {
                   its number narrower than a short row's, and the titles would
                   stop lining up.
                 */}
-                <span className="w-5 shrink-0 font-mono text-xs text-subtle tabular-nums transition-colors group-hover:text-accent-bright">
+                <span className="w-5 shrink-0 font-mono text-xs text-muted tabular-nums transition-colors group-hover:text-accent-bright">
                   {stage.n}
                 </span>
                 <div className="flex-1">

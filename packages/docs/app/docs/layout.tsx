@@ -19,13 +19,23 @@ import { TableOfContents } from '@/components/TableOfContents';
  */
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-auto flex max-w-shell">
+    <div className="relative isolate mx-auto flex max-w-shell">
       {/*
         How far through the page you are, as a hairline under the header.
         Driven by scroll position in CSS, so it costs no JavaScript; browsers
         without scroll-driven animations just do not draw it.
       */}
       <div aria-hidden="true" className="reading-progress" />
+
+      {/*
+        A faint dot field fading out from the top of the page, the same canvas
+        the home page's pipeline sits on. It is behind everything (`-z-10` in
+        an isolated stack) and the rail's own background covers its share.
+      */}
+      <div
+        aria-hidden="true"
+        className="dot-grid pointer-events-none absolute inset-x-0 top-0 -z-10 h-80 opacity-60 [mask-image:linear-gradient(to_bottom,black,transparent)]"
+      />
 
       <aside className="hidden w-60 shrink-0 border-r border-line bg-surface lg:block">
         <div className="sticky top-12 max-h-[calc(100vh-3rem)] overflow-y-auto px-3 py-6">

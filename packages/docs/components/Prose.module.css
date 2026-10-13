@@ -1,0 +1,46 @@
+/*
+ * The numbers in the docs' numbered steps, kept in their own file.
+ *
+ * `.steps` and `.step` (in globals.css) own the counter: one resets it, the
+ * other increments it. All that is needed here is to print it, and padded to
+ * two digits, which the global `.step-number` rule does not do. Written as
+ * `::before` content rather than JSX so inserting a step in the middle of a
+ * page never means renumbering the ones below it.
+ */
+
+/* The small mono tag: "(01)". */
+.code::before {
+  content: '(' counter(step, decimal-leading-zero) ')';
+}
+
+/* The large thin numeral beside the title: "01". */
+.numeral::before {
+  content: counter(step, decimal-leading-zero);
+}
+
+/*
+ * The numeral warms from its resting grey to the muted text grey as its step
+ * crosses the middle of the screen, so the route down the page lights up as
+ * you travel it. Scroll-driven, so it tracks both directions and costs no
+ * JavaScript; browsers without scroll-driven animations just keep the resting
+ * grey. The numeral is decorative (aria-hidden), which is why it may sit below
+ * AA contrast at rest.
+ */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .numeral {
+      animation: numeral-in linear both;
+      animation-timeline: view();
+      animation-range: entry 60% cover 50%;
+    }
+  }
+}
+
+@keyframes numeral-in {
+  from {
+    color: var(--fg-subtle);
+  }
+  to {
+    color: var(--fg-muted);
+  }
+}

@@ -1,23 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  LensError,
-  formatBytes,
-  resolveValidation,
-  validateImage,
-} from '@lens-image/core/browser';
-import type { ImageMetadata } from '@lens-image/core/browser';
-import { CodeBlock } from './CodeBlock';
-import { CopyButton } from './CopyButton';
-import { Upload } from './Icons';
-import {
-  CompareSlider,
-  CompareSliderAfter,
-  CompareSliderBefore,
-  CompareSliderHandle,
-  CompareSliderLabel,
-} from './ui/compare-slider';
+import { LensError, validateImage } from '@lens-image/core/browser';
 import {
   detectFormats,
   encodeAll,
@@ -27,95 +11,26 @@ import {
   type EncodedVariant,
 } from '@/lib/encode';
 import { SAMPLE_IMAGES } from '@/lib/sample-images';
-import { plan, readHeader, type PlanInput } from '@/lib/plan';
+import { plan, readHeader, uniqueWidths, type PlanInput } from '@/lib/plan';
+import { CompressionPanel, FormatPanel, OutputPanel } from './playground/ControlPanels';
+import { Preview } from './playground/Preview';
+import { Keys, Results, Snippet } from './playground/Results';
+import { SourcePanel } from './playground/SourcePanel';
+import { useStatusLog } from './playground/Status';
+import {
+  FORMAT_NAME,
+  KEY_TEMPLATES,
+  MAX_BYTES,
+  POLICY,
+  WIDTH_PRESETS,
+  type Source,
+} from './playground/config';
 
-const FORMATS: { id: BrowserFormat; label: string }[] = [
-  { id: 'avif', label: 'avif' },
-  { id: 'webp', label: 'webp' },
-  { id: 'jpeg', label: 'jpg' },
-  { id: 'png', label: 'png' },
-];
-
-const WIDTH_PRESETS = [
-  { label: 'Responsive', widths: [1600, 1200, 800, 400] },
-  { label: 'Article', widths: [1200, 600] },
-  { label: 'Avatar', widths: [256, 96, 48] },
-  { label: 'Original', widths: [] },
-];
-
-/** Largest file the playground accepts, matching what it plans against. */
-const MAX_BYTES = 25 * 1024 * 1024;
-
-/**
- * The library's own limits: the byte cap above, and its default 100-megapixel
- * decompression-bomb guard. Checked from the file header, before anything is
- * decoded.
- */
-const POLICY = resolveValidation({ maxBytes: MAX_BYTES });
-
-const KEY_TEMPLATES = [
-  '{hash}/{name}-{label}.{ext}',
-  '{format}/{name}-{width}w.{ext}',
-  '{name}/{label}.{ext}',
-];
-
-/** What the playground is currently working on. */
-interface Source {
-  readonly name: string;
-  readonly bytes: number;
-  readonly url: string;
-  readonly bitmap: ImageBitmap;
-  readonly meta: ImageMetadata;
-  readonly hash: string;
-  /** True when we created the object URL and therefore owe a revoke. */
-  readonly owned: boolean;
-}
+/** One shared empty list, so "nothing encoded yet" keeps a stable identity. */
+const NONE: readonly EncodedVariant[] = [];
 
 /**
- * Counts to a target over ~500ms.
- *
- * The savings figure is the punchline of the whole page, and a number that
- * lands by counting reads as something that was *measured* rather than a
- * constant that was always there. Honours `prefers-reduced-motion`, where it
- * simply snaps.
- */
-function useCountUp(target: number, enabled = true): number {
-  const [value, setValue] = useState(target);
-  const from = useRef(target);
-
-  useEffect(() => {
-    const reduced =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    if (!enabled || reduced) {
-      from.current = target;
-      setValue(target);
-      return;
-    }
-
-    const start = performance.now();
-    const origin = from.current;
-    let frame = 0;
-
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / 500);
-      // easeOutCubic, fast at first, so the number is legible almost at once.
-      const eased = 1 - Math.pow(1 - t, 3);
-      setValue(origin + (target - origin) * eased);
-      if (t < 1) frame = requestAnimationFrame(tick);
-      else from.current = target;
-    };
-
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [target, enabled]);
-
-  return value;
-}
-
-/**
- * A live compression playground.
+ * A live compression studio.
  *
  * Two halves, and they are honest about being different things:
  *
@@ -124,6 +39,18 @@ function useCountUp(target: number, enabled = true): number {
  *   your server would produce.
  * - The **planning** (labels, storage keys, the srcset) runs the actual
  *   `@lens-image/core/browser` functions the server runs, so those are exact.
+ *
+ * ### Where the pieces live
+ *
+ * This file owns the state and the two effects that matter (loading a source,
+ * and re-encoding when a control moves). Everything visual is under
+ * `components/playground/`: a rail of control panels on the left, a preview and
+ * the results on the right. Nothing in this tab talks to a server: the one
+ * `fetch` is the same-origin request for a bundled sample, and every other byte
+ * is decoded, encoded and measured locally.
+ *
+ * Below `lg` the layout is one column in DOM order: controls, then preview,
+ * then results.
  */
 export function Playground() {
   const [source, setSource] = useState<Source | null>(null);
@@ -134,104 +61,184 @@ export function Playground() {
   const [keyTemplate, setKeyTemplate] = useState(KEY_TEMPLATES[0]!);
   const [prefix, setPrefix] = useState('');
 
-  const [encoded, setEncoded] = useState<EncodedVariant[]>([]);
+  /**
+   * The newest finished encode, tagged with the source it was made from.
+   *
+   * Loading a new source does not clear this: the encode for it is still to
+   * come, and for that gap the old variants would sit next to the new source,
+   * so the preview, the labels and the savings would each mix two images. The
+   * tag lets the render below ignore a set that belongs to a different source
+   * without any effect having to remember to wipe it first.
+   */
+  const [encodedSet, setEncodedSet] = useState<{
+    sourceUrl: string | null;
+    variants: EncodedVariant[];
+  }>({ sourceUrl: null, variants: [] });
+  /** True once detection has found that this browser can encode nothing. */
+  const [noEncoder, setNoEncoder] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [focus, setFocus] = useState(0);
-  const [dragging, setDragging] = useState(false);
 
-  const fileInput = useRef<HTMLInputElement>(null);
-  const ownedUrls = useRef<string[]>([]);
+  const { lines: statusLines, restart, append, beginEncode, patch } = useStatusLog();
+
   /** The encoded set whose object URLs are currently alive. */
   const live = useRef<EncodedVariant[]>([]);
   const run = useRef(0);
+  /**
+   * Bumped by every load, and once more on unmount. A load compares the value
+   * it started with after each `await` and bows out if it has been overtaken,
+   * so the last click wins rather than the slowest.
+   */
+  const loadToken = useRef(0);
 
   const preset = WIDTH_PRESETS[presetIndex]!;
 
   /* --- loading a source ------------------------------------------------- */
 
-  const adopt = useCallback(async (file: File | string, name?: string) => {
-    setError(null);
-    try {
-      const blob = typeof file === 'string' ? await (await fetch(file)).blob() : file;
-      const asFile =
-        blob instanceof File ? blob : new File([blob], name ?? 'sample.jpg', { type: blob.type });
+  const adopt = useCallback(
+    async (file: File | string, name?: string, sample: string | null = null) => {
+      const token = ++loadToken.current;
+      const superseded = () => token !== loadToken.current;
 
-      // Read the header and apply the library's limits *before* decoding.
-      // A small PNG can declare 40,000 x 40,000 pixels and expand to gigabytes
-      // once decoded, which would crash this tab. The header costs 4 KB to read
-      // and says so up front, which is exactly what the server does too.
-      const { meta, hash } = await readHeader(asFile);
-      if (POLICY) validateImage(meta, POLICY, asFile.name);
+      setError(null);
+      // Each stage patches the line it wrote, never "the newest line", so an
+      // overtaken load cannot scribble on the log of the one that replaced it.
+      let line = restart('Reading header…', 'source');
+      try {
+        const blob = typeof file === 'string' ? await (await fetch(file)).blob() : file;
+        if (superseded()) return;
+        const asFile =
+          blob instanceof File ? blob : new File([blob], name ?? 'sample.jpg', { type: blob.type });
 
-      const bitmap = await loadBitmap(blob);
-      const url = URL.createObjectURL(blob);
-      ownedUrls.current.push(url);
+        // Read the header and apply the library's limits *before* decoding.
+        // A small PNG can declare 40,000 x 40,000 pixels and expand to gigabytes
+        // once decoded, which would crash this tab. The header costs 4 KB to read
+        // and says so up front, which is exactly what the server does too.
+        const { meta, hash } = await readHeader(asFile);
+        if (superseded()) return;
+        if (POLICY) validateImage(meta, POLICY, asFile.name);
+        patch(
+          line,
+          `Header read, ${meta.format.toUpperCase()} ${meta.width}×${meta.height}`,
+          'done',
+        );
 
-      setSource((previous) => {
-        previous?.bitmap.close?.();
-        return {
+        line = append('Decoding…', 'source');
+        const bitmap = await loadBitmap(blob);
+        // The one resource a late load is holding at this point. Its object URL
+        // is created below, in the same synchronous run that publishes it, so
+        // there is never one to revoke here.
+        if (superseded()) {
+          bitmap.close?.();
+          return;
+        }
+        patch(line, 'Decoded', 'done');
+
+        setSource({
           name: name ?? asFile.name,
           bytes: blob.size,
-          url,
+          url: URL.createObjectURL(blob),
           bitmap,
           meta,
           hash,
           owned: true,
-        };
-      });
-      setFocus(0);
-    } catch (cause) {
-      setError(
-        // A LensError is the library explaining a rule the file broke; show it
-        // as written. Anything else is the browser failing to read the file.
-        LensError.is(cause)
-          ? cause.message
-          : cause instanceof Error
-            ? `Could not read that image, ${cause.message}`
-            : 'Could not read that image.',
-      );
-    }
-  }, []);
+          sample,
+        });
+        setFocus(0);
+      } catch (cause) {
+        if (superseded()) return;
+        const message =
+          // A LensError is the library explaining a rule the file broke; show it
+          // as written. Anything else is the browser failing to read the file.
+          LensError.is(cause)
+            ? cause.message
+            : cause instanceof Error
+              ? `Could not read that image, ${cause.message}`
+              : 'Could not read that image.';
+        setError(message);
+        patch(line, 'Could not load that image', 'error');
+      }
+    },
+    [restart, append, patch],
+  );
 
   // Load the first sample so the page is never an empty form.
   useEffect(() => {
-    setAvailable(detectFormats());
+    const detected = detectFormats();
+    setAvailable(detected);
+    // The default is WebP, which a browser may not be able to encode. Move to
+    // the first format it can, or the page would sit there doing nothing.
+    setFormat((current) => (detected.includes(current) ? current : (detected[0] ?? current)));
+    setNoEncoder(detected.length === 0);
+
     const first = SAMPLE_IMAGES[0];
-    if (first) void adopt(first.src, `${first.name.toLowerCase()}.jpg`);
+    if (first) void adopt(first.src, `${first.name.toLowerCase()}.jpg`, first.name);
   }, [adopt]);
 
-  // Object URLs and bitmaps are both manual-release resources.
+  // A load still in flight when the page goes away must not publish anything.
   useEffect(
     () => () => {
-      for (const url of ownedUrls.current) URL.revokeObjectURL(url);
-      ownedUrls.current = [];
+      loadToken.current++;
     },
     [],
   );
 
+  // Object URLs and bitmaps are both manual-release resources. This releases
+  // the *source's* when it is replaced and when the page unmounts, along with
+  // the encoded set that was made from it.
+  //
+  // Keyed on `source`, which only changes when a load completes, so unlike a
+  // cleanup keyed on `encoded` it is not fighting StrictMode's mount/unmount/
+  // remount (see the hand-off below). It runs after the commit that swaps the
+  // source, so the old image is already off screen when its bitmap is closed,
+  // and the abort in the encode effect's cleanup has already fired.
+  useEffect(() => {
+    if (!source) return;
+    return () => {
+      source.bitmap.close?.();
+      URL.revokeObjectURL(source.url);
+      revoke(live.current);
+      live.current = [];
+    };
+  }, [source]);
+
   /* --- encoding ---------------------------------------------------------- */
 
   useEffect(() => {
-    if (!source) return;
+    if (!source || noEncoder) return;
     if (available.length > 0 && !available.includes(format)) return;
 
     const id = ++run.current;
     const controller = new AbortController();
+    const name = FORMAT_NAME[format];
 
     // Debounced, because the quality slider fires on every pixel of travel and
     // each change is four full canvas encodes.
     const timer = setTimeout(async () => {
       setBusy(true);
+      const started = performance.now();
+      const line = beginEncode(`Encoding ${name}…`);
       try {
-        const widths = preset.widths.length > 0 ? preset.widths : [source.bitmap.width];
+        // Clamped to the source and de-duplicated first: against a 1000px
+        // image, 1600w and 1200w would both come out 1000 wide, and the real
+        // library refuses two sizes with the same label.
+        const widths = uniqueWidths(preset.widths, source.bitmap.width);
         const next = await encodeAll(
           source.bitmap,
           widths.map((width) => ({ width, format, quality })),
           controller.signal,
+          // The status line names the variant the encoder is on right now,
+          // reported by the encoder itself as each one starts.
+          (index, total, job) => {
+            if (id !== run.current || total < 2) return;
+            patch(line, `Encoding ${name} · ${index + 1} of ${total} (${job.width ?? '?'}w)…`);
+          },
         );
 
-        // A slower earlier run must not overwrite a newer one.
+        // A slower earlier run must not overwrite a newer one. The same goes
+        // for one that outlived its source: its widths and bytes describe an
+        // image that is no longer on screen.
         if (id !== run.current) {
           revoke(next);
           return;
@@ -245,14 +252,22 @@ export function Playground() {
         // hand-off here is the only version that survives both.
         const previous = live.current;
         live.current = next;
-        setEncoded(next);
+        setEncodedSet({ sourceUrl: source.url, variants: next });
         revoke(previous);
         setError(null);
+        patch(
+          line,
+          `Done in ${Math.round(performance.now() - started)} ms · ${next.length} file${
+            next.length === 1 ? '' : 's'
+          }`,
+          'final',
+        );
       } catch (cause) {
         if (id === run.current) {
-          setError(
-            cause instanceof Error ? cause.message : `This browser cannot encode ${format}.`,
-          );
+          const message =
+            cause instanceof Error ? cause.message : `This browser cannot encode ${format}.`;
+          setError(message);
+          patch(line, `Failed: ${message}`, 'error');
         }
       } finally {
         if (id === run.current) setBusy(false);
@@ -263,20 +278,14 @@ export function Playground() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [source, format, quality, preset, available]);
-
-  // Unmount only; replacements are released at the hand-off above.
-  useEffect(() => () => revoke(live.current), []);
+  }, [source, format, quality, preset, available, noEncoder, beginEncode, patch]);
 
   /* --- derived ----------------------------------------------------------- */
 
+  // Only a set made from the source on screen is shown; see `encodedSet`.
+  const encoded = source && encodedSet.sourceUrl === source.url ? encodedSet.variants : NONE;
   const largest = encoded[0];
   const shown = encoded[Math.min(focus, Math.max(encoded.length - 1, 0))] ?? largest;
-
-  const totalBytes = encoded.reduce((sum, v) => sum + v.size, 0);
-  const savings =
-    source && largest ? Math.max(0, 1 - largest.size / source.bytes) : 0;
-  const savingsShown = useCountUp(savings * 100, Boolean(largest));
 
   const planInput: PlanInput = useMemo(
     () => ({
@@ -292,15 +301,18 @@ export function Playground() {
   );
 
   const planned = useMemo(
-    () =>
-      source ? plan(planInput, source.meta, source.name, source.hash) : null,
+    () => (source ? plan(planInput, source.meta, source.name, source.hash) : null),
     [planInput, source],
   );
 
   const snippet = useMemo(() => {
+    // The widths that would really be produced, not the ones asked for: the
+    // library never upscales, so the preset's larger sizes collapse to the
+    // source's width and would otherwise appear here as sizes it rejects.
+    const widths = source ? uniqueWidths(preset.widths, source.meta.width) : preset.widths;
     const sizes =
       preset.widths.length > 0
-        ? `  sizes: [${preset.widths.map((w) => `{ width: ${w} }`).join(', ')}],\n`
+        ? `  sizes: [${widths.map((w) => `{ width: ${w} }`).join(', ')}],\n`
         : '';
     return (
       `await optimizer.optimize({\n` +
@@ -314,646 +326,59 @@ export function Playground() {
     );
   }, [source, format, quality, preset, prefix, keyTemplate]);
 
+  const shownError = noEncoder
+    ? 'This browser cannot encode WebP, AVIF, JPEG or PNG, so the playground has nothing to measure. Try a current Chrome, Edge, Firefox or Safari.'
+    : error;
+
   /* --- render ------------------------------------------------------------ */
 
   return (
-    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-      {/* ---- controls --------------------------------------------------- */}
-      <div className="flex w-full shrink-0 flex-col gap-5 lg:w-64">
-        <div>
-          <p className="label mb-1.5">Try one</p>
-          <div className="grid grid-cols-3 gap-1.5">
-            {SAMPLE_IMAGES.map((sample) => {
-              const active = source?.name.startsWith(sample.name.toLowerCase());
-              return (
-                <button
-                  key={sample.name}
-                  type="button"
-                  onClick={() => void adopt(sample.src, `${sample.name.toLowerCase()}.jpg`)}
-                  aria-pressed={active}
-                  className={`group relative aspect-[4/3] overflow-hidden rounded-md border transition-[border-color,transform,box-shadow] duration-300 ease-out-expo active:scale-[0.96] ${
-                    active
-                      ? 'border-accent shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_22%,transparent)]'
-                      : 'border-line hover:-translate-y-0.5 hover:border-line-strong'
-                  }`}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={sample.src}
-                    alt={sample.alt}
-                    loading="lazy"
-                    className="h-full w-full object-cover transition-transform duration-500 ease-out-expo group-hover:scale-110"
-                  />
-                  <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 pb-1 pt-4 text-left text-2xs text-white">
-                    {formatBytes(sample.bytes)}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div
-          onDragEnter={(e) => {
-            e.preventDefault();
-            setDragging(true);
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[23rem_minmax(0,1fr)] lg:items-start">
+      {/* ---- controls rail --------------------------------------------- */}
+      <div className="flex min-w-0 flex-col gap-4">
+        <SourcePanel
+          source={source}
+          onSample={(src, name, sample) => void adopt(src, name, sample)}
+          onFile={(file) => void adopt(file)}
+        />
+        <FormatPanel format={format} available={available} onChange={setFormat} />
+        <CompressionPanel
+          format={format}
+          quality={quality}
+          onQuality={setQuality}
+          presetIndex={presetIndex}
+          onPreset={(index) => {
+            setPresetIndex(index);
+            setFocus(0);
           }}
-          onDragOver={(e) => e.preventDefault()}
-          onDragLeave={(e) => {
-            e.preventDefault();
-            setDragging(false);
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragging(false);
-            const file = e.dataTransfer.files[0];
-            if (file) void adopt(file);
-          }}
-          className={`flex flex-col items-center gap-2 rounded-lg border border-dashed p-4 text-center transition-colors ${
-            dragging ? 'border-accent bg-accent/5' : 'border-line bg-surface'
-          }`}
-        >
-          <Upload
-            className={`h-4 w-4 transition-transform ${dragging ? 'scale-125 text-accent' : 'text-subtle'}`}
-          />
-          <p className="text-sm text-muted">Or drop your own</p>
-          <button
-            type="button"
-            onClick={() => fileInput.current?.click()}
-            className="btn btn-secondary"
-          >
-            Choose a file
-          </button>
-          <input
-            ref={fileInput}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void adopt(file);
-              e.target.value = '';
-            }}
-          />
-          <p className="text-2xs text-subtle">
-            Never uploaded. Encoded in this tab and thrown away.
-          </p>
-        </div>
-
-        <Field label="Format">
-          <div className="flex flex-wrap gap-1.5">
-            {FORMATS.map((entry) => {
-              const supported = available.length === 0 || available.includes(entry.id);
-              const on = format === entry.id;
-              return (
-                <button
-                  key={entry.id}
-                  type="button"
-                  disabled={!supported}
-                  aria-pressed={on}
-                  onClick={() => setFormat(entry.id)}
-                  title={supported ? undefined : 'Your browser cannot encode this format'}
-                  className={`rounded-md border px-2.5 py-1 font-mono text-xs transition-colors ${
-                    on
-                      ? 'border-accent/40 bg-accent/10 text-accent-bright'
-                      : supported
-                        ? 'border-line bg-surface text-muted hover:text-foreground'
-                        : 'cursor-not-allowed border-line/60 bg-surface text-subtle/50 line-through'
-                  }`}
-                >
-                  {entry.label}
-                </button>
-              );
-            })}
-          </div>
-        </Field>
-
-        <Field label={`Quality, ${quality}`}>
-          <input
-            type="range"
-            min={10}
-            max={100}
-            value={quality}
-            disabled={format === 'png'}
-            onChange={(e) => setQuality(Number(e.target.value))}
-            className="w-full accent-[var(--accent)] disabled:opacity-40"
-          />
-          <p className="mt-1.5 text-2xs text-subtle">
-            {format === 'png' ? 'PNG is lossless, quality does nothing.' : 'Drag it and watch the bytes move.'}
-          </p>
-        </Field>
-
-        <Field label="Sizes">
-          <div className="flex flex-wrap gap-1.5">
-            {WIDTH_PRESETS.map((entry, index) => (
-              <button
-                key={entry.label}
-                type="button"
-                aria-pressed={index === presetIndex}
-                onClick={() => {
-                  setPresetIndex(index);
-                  setFocus(0);
-                }}
-                className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
-                  index === presetIndex
-                    ? 'border-accent/40 bg-accent/10 text-accent-bright'
-                    : 'border-line bg-surface text-muted hover:text-foreground'
-                }`}
-              >
-                {entry.label}
-              </button>
-            ))}
-          </div>
-        </Field>
-
-        <Field label="Key template">
-          <select
-            value={keyTemplate}
-            onChange={(e) => setKeyTemplate(e.target.value)}
-            className="w-full rounded-md border border-line bg-surface px-2 py-1.5 font-mono text-xs text-foreground"
-          >
-            {KEY_TEMPLATES.map((template) => (
-              <option key={template} value={template}>
-                {template}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        <Field label="Prefix">
-          <input
-            type="text"
-            value={prefix}
-            placeholder="products"
-            onChange={(e) => setPrefix(e.target.value)}
-            className="w-full rounded-md border border-line bg-surface px-2 py-1.5 font-mono text-xs text-foreground placeholder:text-subtle"
-          />
-        </Field>
+        />
+        <OutputPanel
+          keyTemplate={keyTemplate}
+          onKeyTemplate={setKeyTemplate}
+          prefix={prefix}
+          onPrefix={setPrefix}
+        />
       </div>
 
-      {/* ---- output ------------------------------------------------------ */}
-      <div className="flex min-w-0 flex-1 flex-col gap-5">
-        {error ? (
-          <div className="rounded-lg border border-danger/40 bg-danger/5 p-4 text-sm text-muted">
-            {error}
+      {/* ---- preview and results --------------------------------------- */}
+      <div className="flex min-w-0 flex-col gap-4">
+        {shownError ? (
+          <div
+            role="alert"
+            className="rounded-xl border border-danger/40 bg-danger/5 p-4 text-sm text-secondary"
+          >
+            {shownError}
           </div>
         ) : null}
 
-        <Comparison source={source} variant={shown} busy={busy} />
+        <Preview source={source} variant={shown} busy={busy} status={statusLines} />
 
-        <Savings
-          source={source}
-          largest={largest}
-          percent={savingsShown}
-          totalBytes={totalBytes}
-          count={encoded.length}
-        />
-
-        <Ladder
-          encoded={encoded}
-          focus={focus}
-          onFocus={setFocus}
-          sourceBytes={source?.bytes ?? 0}
-        />
+        <Results source={source} encoded={encoded} focus={focus} onFocus={setFocus} />
 
         {planned && planned.variants.length > 0 ? <Keys planned={planned} /> : null}
 
-        <div>
-          <p className="label mb-2">The call that produces this</p>
-          <CodeBlock code={snippet} language="ts" />
-        </div>
+        <Snippet code={snippet} />
       </div>
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <p className="label mb-1.5">{label}</p>
-      {children}
-    </div>
-  );
-}
-
-/**
- * The before/after viewer.
- *
- * The frame is a fixed height and the images are `object-cover` inside it. It
- * used to take its aspect ratio from the source, so switching from a landscape
- * sample to a portrait one nearly doubled the height and shoved the rest of the
- * page down. Every source now lands in exactly the same box.
- */
-function Comparison({
-  source,
-  variant,
-  busy,
-}: {
-  source: Source | null;
-  variant: EncodedVariant | undefined;
-  busy: boolean;
-}) {
-  const [divider, setDivider] = useState(52);
-  const [dragging, setDragging] = useState(false);
-  const revealed = useRef<string | null>(null);
-  const sweep = useRef(0);
-
-  // A new source arrives fully "original", then the encoded version wipes in
-  // from the left and comes to rest where the divider normally sits. It shows
-  // what the slider does before anyone has to be told, and it waits for the
-  // first encode so there is something on the other side to reveal.
-  useEffect(() => {
-    if (!source || !variant || revealed.current === source.url) return;
-    revealed.current = source.url;
-
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduced) {
-      setDivider(52);
-      return;
-    }
-
-    const start = performance.now();
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / 1300);
-      // easeOutExpo, matching the rest of the site's arrivals.
-      const eased = t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
-      setDivider(52 * eased);
-      if (t < 1) sweep.current = requestAnimationFrame(tick);
-    };
-    cancelAnimationFrame(sweep.current);
-    setDivider(0);
-    sweep.current = requestAnimationFrame(tick);
-  }, [source, variant]);
-
-  useEffect(() => () => cancelAnimationFrame(sweep.current), []);
-
-  // Grabbing the handle mid-sweep hands control straight to the pointer.
-  const interrupt = () => cancelAnimationFrame(sweep.current);
-
-  if (!source) {
-    return (
-      <div className="relative grid h-[clamp(300px,44vh,520px)] place-items-center overflow-hidden rounded-lg border border-line bg-surface text-sm text-muted">
-        <ScanBar active />
-        <span className="animate-pulse">Loading a sample...</span>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-        <p className="label">Drag to compare, double-click to centre</p>
-
-        <span
-          className={`font-mono text-2xs text-accent-bright transition-opacity ${
-            busy ? 'opacity-100' : 'opacity-0'
-          }`}
-          aria-live="polite"
-        >
-          encoding...
-        </span>
-      </div>
-
-      <CompareSlider
-        value={divider}
-        onValueChange={setDivider}
-        className="h-[clamp(300px,44vh,520px)] rounded-lg border border-line bg-surface"
-        onPointerDown={() => {
-          interrupt();
-          setDragging(true);
-        }}
-        onKeyDown={interrupt}
-        onPointerUp={() => setDragging(false)}
-        onPointerLeave={() => setDragging(false)}
-        onDoubleClick={() => setDivider(50)}
-      >
-        <ScanBar active={busy} />
-
-        {/* Right of the divider: the untouched source. */}
-        <CompareSliderBefore>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            key={source.url}
-            src={source.url}
-            alt=""
-            className="h-full w-full animate-fade-in object-cover"
-          />
-          <CompareSliderLabel side="after">
-            original, {formatBytes(source.bytes)}
-          </CompareSliderLabel>
-        </CompareSliderBefore>
-
-        {/* Left of the divider: what the encoder just produced. */}
-        <CompareSliderAfter>
-          <div className="h-full w-full bg-raised">
-            {variant ? <Crossfade src={variant.url} /> : null}
-          </div>
-          {variant ? (
-            <CompareSliderLabel
-              side="before"
-              className={`border-accent/40 text-accent-bright transition-opacity duration-300 ${
-                busy ? 'opacity-60' : 'opacity-100'
-              }`}
-            >
-              {variant.format} q{variant.quality}, {formatBytes(variant.size)}
-            </CompareSliderLabel>
-          ) : null}
-        </CompareSliderAfter>
-
-        <CompareSliderHandle>
-          <div
-            className={`absolute left-1/2 h-full w-0.5 -translate-x-1/2 bg-white transition-shadow ${
-              dragging ? 'shadow-[0_0_14px_2px_rgb(255_255_255/0.45)]' : ''
-            }`}
-          />
-          <div
-            className={`z-30 grid size-10 place-items-center rounded-full border border-white/25 bg-black/70 text-white backdrop-blur-sm transition-transform ${
-              dragging ? 'scale-110' : ''
-            }`}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width={15}
-              height={15}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M9 6 3 12l6 6M15 6l6 6-6 6" />
-            </svg>
-          </div>
-
-          {/* Live read-out, so the drag reports something. */}
-          <span
-            className={`pointer-events-none absolute top-[calc(50%+2rem)] rounded bg-black/70 px-1.5 py-0.5 font-mono text-2xs tabular-nums text-white transition-opacity ${
-              dragging ? 'opacity-100' : 'opacity-0'
-            }`}
-          >
-            {Math.round(divider)}%
-          </span>
-        </CompareSliderHandle>
-      </CompareSlider>
-
-      <p className="mt-2 text-2xs text-subtle">
-        Encoded by <strong className="font-medium text-muted">your browser</strong>, not by
-        sharp, so the shape of the curve is the same but the exact bytes are not. Arrow
-        keys nudge the divider; hold shift for bigger steps.
-      </p>
-    </div>
-  );
-}
-/**
- * Holds the previous encode on screen until the next one has decoded, then
- * fades the new one in over it.
- *
- * Dragging the quality slider replaces this image several times a second.
- * Swapping `src` in place blanks the pane for a frame while the new file
- * decodes, which reads as flicker; this reads as the picture changing.
- */
-function Crossfade({ src }: { src: string }) {
-  const [layers, setLayers] = useState<{ src: string; ready: boolean }[]>([
-    { src, ready: false },
-  ]);
-
-  useEffect(() => {
-    setLayers((current) =>
-      current[current.length - 1]?.src === src
-        ? current
-        : [...current.filter((l) => l.ready).slice(-1), { src, ready: false }],
-    );
-  }, [src]);
-
-  // Once the top layer has loaded and had time to fade in, drop what is under
-  // it. A timer rather than `transitionend`: a blob that decodes before the
-  // first paint never transitions, so that event would never come.
-  const settled = layers[layers.length - 1]?.ready && layers.length > 1;
-  useEffect(() => {
-    if (!settled) return;
-    const timer = setTimeout(() => setLayers((current) => current.slice(-1)), 350);
-    return () => clearTimeout(timer);
-  }, [settled]);
-
-  return (
-    <div className="relative h-full w-full">
-      {layers.map((layer, index) => {
-        const top = index === layers.length - 1;
-        return (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            key={layer.src}
-            src={layer.src}
-            alt=""
-            onLoad={() =>
-              setLayers((current) =>
-                current.map((l) => (l.src === layer.src ? { ...l, ready: true } : l)),
-              )
-            }
-            className="absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ease-out"
-            style={{ opacity: layer.ready || !top ? 1 : 0 }}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
-/** A thin light crossing the top edge of a frame while work is in flight. */
-function ScanBar({ active }: { active: boolean }) {
-  return (
-    <div
-      aria-hidden
-      className={`pointer-events-none absolute inset-x-0 top-0 z-40 h-0.5 overflow-hidden transition-opacity duration-300 ${
-        active ? 'opacity-100' : 'opacity-0'
-      }`}
-    >
-      <div className="h-full w-1/2 animate-scan bg-gradient-to-r from-transparent via-accent-bright to-transparent" />
-    </div>
-  );
-}
-
-/** The headline number. */
-function Savings({
-  source,
-  largest,
-  percent,
-  totalBytes,
-  count,
-}: {
-  source: Source | null;
-  largest: EncodedVariant | undefined;
-  percent: number;
-  totalBytes: number;
-  count: number;
-}) {
-  if (!source || !largest) return null;
-
-  const big = percent >= 80;
-  const kept = source.bytes > 0 ? Math.min(1, largest.size / source.bytes) : 1;
-
-  return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border border-line bg-surface p-4">
-      <div>
-        <p
-          className={`font-mono text-3xl tabular-nums transition-colors ${
-            big ? 'text-signal' : 'text-foreground'
-          }`}
-        >
-          {percent.toFixed(0)}
-          <span className="text-xl text-muted">%</span>
-        </p>
-        <p className="label mt-0.5">smaller</p>
-      </div>
-
-      <div className="h-10 w-px bg-line" aria-hidden />
-
-      <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-        <Stat label="original" value={formatBytes(source.bytes)} />
-        <Stat label="largest output" value={formatBytes(largest.size)} />
-        <Stat label={`all ${count} file${count === 1 ? '' : 's'}`} value={formatBytes(totalBytes)} />
-        <Stat label="encode time" value={`${largest.durationMs}ms`} />
-      </dl>
-
-      {/*
-        The same number as a length. The track is the original; the bar is what
-        is left of it, and it slides as the quality slider moves.
-      */}
-      <div className="w-full basis-full" aria-hidden>
-        <div className="relative h-1.5 overflow-hidden rounded-full bg-raised">
-          <div
-            className="absolute inset-y-0 left-0 origin-left animate-grow-x rounded-full bg-accent transition-[width] duration-700 ease-out-expo"
-            style={{ width: `${Math.max(kept * 100, 0.75)}%` }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="label">{label}</dt>
-      <dd className="mt-0.5 font-mono text-sm tabular-nums text-secondary">{value}</dd>
-    </div>
-  );
-}
-
-/**
- * The responsive ladder, drawn to scale.
- *
- * A table of widths tells you the numbers; bars whose length is the actual
- * width show you the *shape* of what you asked for, which is the thing people
- * get wrong when they pick sizes.
- */
-function Ladder({
-  encoded,
-  focus,
-  onFocus,
-  sourceBytes,
-}: {
-  encoded: readonly EncodedVariant[];
-  focus: number;
-  onFocus: (index: number) => void;
-  sourceBytes: number;
-}) {
-  if (encoded.length === 0) return null;
-  const widest = Math.max(...encoded.map((v) => v.width));
-
-  return (
-    <div>
-      <p className="label mb-2">Every file it would write, hover to preview</p>
-      <div className="flex flex-col gap-1.5">
-        {encoded.map((variant, index) => {
-          const share = sourceBytes > 0 ? variant.size / sourceBytes : 0;
-          return (
-            <button
-              key={`${variant.width}-${variant.format}`}
-              type="button"
-              onMouseEnter={() => onFocus(index)}
-              onFocus={() => onFocus(index)}
-              onClick={() => onFocus(index)}
-              style={{ animationDelay: `${index * 60}ms` }}
-              className={`group flex animate-rise items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors ${
-                index === focus
-                  ? 'border-accent/40 bg-accent/5'
-                  : 'border-line bg-surface hover:border-line-strong'
-              }`}
-            >
-              <span className="w-24 shrink-0 font-mono text-xs tabular-nums text-secondary">
-                {variant.width}×{variant.height}
-              </span>
-
-              {/* Bar length is the real pixel width, so the ladder is to scale. */}
-              <span className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-raised">
-                <span
-                  className="absolute inset-y-0 left-0 origin-left animate-grow-x rounded-full bg-accent/70 transition-[width] duration-500 ease-out-expo"
-                  style={{
-                    width: `${(variant.width / widest) * 100}%`,
-                    animationDelay: `${index * 60 + 120}ms`,
-                  }}
-                />
-              </span>
-
-              <span className="w-20 shrink-0 text-right font-mono text-xs tabular-nums text-foreground">
-                {formatBytes(variant.size)}
-              </span>
-              <span className="w-12 shrink-0 text-right font-mono text-2xs tabular-nums text-subtle">
-                {share > 0 ? `${Math.round(share * 100)}%` : ''}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/** Storage keys and srcset, computed by the real library, not approximated. */
-function Keys({ planned }: { planned: NonNullable<ReturnType<typeof plan>> }) {
-  const srcsets = Object.entries(planned.srcsets).filter(([, v]) => v.length > 0);
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <p className="label mb-2">Storage keys</p>
-        <ul className="flex flex-col gap-1">
-          {planned.variants.map((variant, index) => (
-            <li
-              key={variant.key}
-              style={{ animationDelay: `${index * 40}ms` }}
-              className="animate-fade-in rounded-md border border-line bg-surface px-3 py-1.5 font-mono text-xs text-muted"
-            >
-              <span className="break-all">{variant.key}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {srcsets.map(([format, srcset]) => (
-        <div key={format}>
-          <p className="label mb-2">srcset</p>
-          <div className="group flex items-start gap-2 rounded-lg border border-line bg-surface p-3">
-            <code className="min-w-0 flex-1 break-all font-mono text-xs text-muted">
-              {srcset}
-            </code>
-            <div className="shrink-0 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-              <CopyButton value={srcset} />
-            </div>
-          </div>
-        </div>
-      ))}
-
-      <p className="text-2xs text-subtle">
-        These come from <code className="font-mono">@lens-image/core/browser</code>, the
-        same <code className="font-mono">buildKey</code> and{' '}
-        <code className="font-mono">defaultLabel</code> the server calls. Exact, not
-        approximated.
-      </p>
     </div>
   );
 }
